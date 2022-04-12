@@ -2,3 +2,4 @@ build/
 output/
 *.sublime-project
 *.sublime-workspace
+*.bin
