@@ -21,7 +21,7 @@
 // +-----+---------+------------------------------------+
 // | 0   | 0       | 0: Show the interactive menu       |
 // |     |         | 1: Start UMS automatically and use |
-// |     |         |    the configuration in 0xa5       |
+// |     |         |    the configuration in 0x95       |
 // +-----+---------+------------------------------------+
 // | 1:2 | 0       | 0: Return to menu after UMS has    |
 // |     |         |    stopped                         |
