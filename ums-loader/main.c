@@ -93,8 +93,8 @@ typedef struct ums_loader_ums_cfg_t{
 }ums_loader_ums_cfg_t;
 
 ums_loader_boot_cfg_t ums_loader_boot_cfg __attribute__((__section__("._ums_loader_cfg"))) = {
-	.magic = 0x1,
-	.config = 0x6,
+	.magic = 0x0,
+	.config = 0x2,
 };
 
 typedef struct ums_toggle_cb_data_t{
