@@ -8,6 +8,7 @@ include $(DEVKITARM)/base_rules
 ################################################################################
 
 IPL_LOAD_ADDR := 0x40000000
+MAX_PAYLOAD_SIZE := 49152
 
 ################################################################################
 
@@ -22,7 +23,7 @@ STORAGE_DIR = ./memloader/storage
 
 VPATH = $(dir $(STORAGE_DIR)/) $(dir $(GFX_DIR)/) $(dir $(SRC_DIR)/) $(dir $(BDK_DIR)/) $(BDK_DIR)/ $(dir $(wildcard $(BDK_DIR)/*/)) $(dir $(wildcard $(BDK_DIR)/*/*/))
 
-TARGET = ums-thing
+TARGET = ums-loader
 PAYLOAD_NAME = $(TARGET)
 
 OBJS = $(addprefix $(BUILD_DIR)/$(TARGET)/, \
@@ -37,18 +38,20 @@ OBJS = $(addprefix $(BUILD_DIR)/$(TARGET)/, \
 GFX_INC = '"../$(GFX_DIR)/gfx.h"'
 INC_DIR = -I./$(BDK_DIR) -I./$(SRC_DIR) -I./$(GFX_DIR)
 
-CUSTOMDEFINES += -DGFX_INC=$(GFX_INC)
+CUSTOMDEFINES += -DGFX_INC=$(GFX_INC) -DMAX_PAYLOAD_SIZE=$(MAX_PAYLOAD_SIZE)
 
 WARNINGS := -Wall -Wno-array-bounds -Wno-stringop-overread -Wno-stringop-overflow
-ARCH := -march=armv4t -mtune=arm7tdmi -mthumb-interwork -mthumb -Wstack-usage=1024
-CFLAGS = $(ARCH) -O0 -g -nostdlib -ffunction-sections -fdata-sections -std=gnu11  $(WARNINGS) $(CUSTOMDEFINES) -fno-inline
+ARCH := -march=armv4t -mtune=arm7tdmi -mthumb-interwork -mthumb -Wstack-usage=2048
+CFLAGS = $(ARCH) -O2 -flto -g -nostdlib -ffunction-sections -fdata-sections -std=gnu11  $(WARNINGS) $(CUSTOMDEFINES) -fno-inline
 LDFLAGS = $(ARCH) -nostartfiles -lgcc -Wl,--nmagic,--gc-sections -Xlinker --defsym=IPL_LOAD_ADDR=$(IPL_LOAD_ADDR)
 
 
 .PHONY: all
 
-all: clean
-	$(MAKE) $(OUT_DIR)/$(PAYLOAD_NAME).bin
+all: $(OUT_DIR)/$(PAYLOAD_NAME).bin
+	$(eval PAYLOAD_SIZE = $(shell wc -c < $(OUT_DIR)/$(PAYLOAD_NAME).bin))
+	@echo "Payload size is ${PAYLOAD_SIZE}"
+	@if [ ${PAYLOAD_SIZE} -gt ${MAX_PAYLOAD_SIZE} ]; then echo "\033[0;31m ERROR: Payload size is ${PAYLOAD_SIZE} bytes. Maximum allowed is ${MAX_PAYLOAD_SIZE} bytes \033[0m"; fi
 
 $(OUT_DIR)/$(PAYLOAD_NAME).bin: $(BUILD_DIR)/$(TARGET)/$(TARGET).elf | $(OUT_DIR)
 	$(OBJCOPY) -S -O binary $< $@
