@@ -465,7 +465,7 @@ void hw_reinit_workaround(bool coreboot, u32 bl_magic)
 		// display_backlight_brightness(brightness, 0);
 		break;
 	default:
-		// display_end();
+		display_end();
 	}
 
 	// Enable clock to USBD and init SDMMC1 to avoid hangs with bad hw inits.
