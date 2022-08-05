@@ -20,6 +20,7 @@
  */
 
 #include <display/di.h>
+#include <gfx.h>
 #include <string.h>
 
 #include <usb/usbd.h>
@@ -1852,21 +1853,20 @@ static inline void _system_maintainance(usbd_gadget_ums_t *ums)
 	}
 }
 
+bool get_prevent_media_removal(usbd_gadget_ums_t *ums){
+	bool prevent_medium_removal = 0;
+	for(u32 i = 0; i < ums->lun_cnt; i++){
+		prevent_medium_removal |= ums->luns[i].prevent_medium_removal;
+	}
+	return(prevent_medium_removal);
+}
+
 int usb_device_gadget_ums(usb_ctxt_t *usbs)
 {
 	int res = 0;
 	sdmmc_t sdmmc;
 	sdmmc_storage_t storage;
 	usbd_gadget_ums_t ums = {0};
-
-	// Get USB Controller ops.
-	// if (hw_get_chip_id() == GP_HIDREV_MAJOR_T210)
-	// 	usb_device_get_ops(&usb_ops);
-	// else
-	// {
-	// 	ums.xusb = true;
-	// 	xusb_device_get_ops(&usb_ops);
-	// }
 
 	if(usbs->volumes_cnt == 0){
 		usbs->set_text(usbs->label, "ERR: No volumes");
@@ -1920,7 +1920,10 @@ int usb_device_gadget_ums(usb_ctxt_t *usbs)
 				ums.set_text(ums.label, "Mounting SD");
 
 				sd_used = true;
-				sd_initialize(false);
+				if(!sd_initialize(false)){
+					ums.set_text(ums.label, "ERR: SD init fail");
+					goto error;
+				}
 			}
 			ums.luns[i].storage = &sd_storage;
 		}else{
@@ -1928,7 +1931,10 @@ int usb_device_gadget_ums(usb_ctxt_t *usbs)
 				ums.set_text(ums.label, "Mounting MMC");
 
 				mmc_used = true;
-				sdmmc_storage_init_mmc(&storage, &sdmmc, SDMMC_BUS_WIDTH_8, SDHCI_TIMING_MMC_HS400);
+				if(!sdmmc_storage_init_mmc(&storage, &sdmmc, SDMMC_BUS_WIDTH_8, SDHCI_TIMING_MMC_HS400)){
+					ums.set_text(ums.label, "ERR: MMC init fail");
+					goto error;
+				}
 			}
 			ums.luns[i].storage = &storage;
 		}
@@ -1941,32 +1947,28 @@ int usb_device_gadget_ums(usb_ctxt_t *usbs)
 	ums.set_text(ums.label, "Waiting for connection");
 
 	// Initialize Control Endpoint.
-	if (usb_ops.usb_device_enumerate(USB_GADGET_UMS))
+	if (usb_ops.usb_device_enumerate(USB_GADGET_UMS)){
+		ums.set_text(ums.label, "ERR: Timeout/canceled");
 		goto error;
+	}
 
 	ums.set_text(ums.label, "Waiting for LUN");
 
-	if (usb_ops.usb_device_class_send_max_lun(ums.lun_cnt - 1))
+	if (usb_ops.usb_device_class_send_max_lun(ums.lun_cnt - 1)){
+		ums.set_text(ums.label, "ERR: Timeout/canceled");
 		goto error;
+	}
 
 	ums.set_text(ums.label, "Started UMS");
 
-	u32 prevent_medium_removal;
-
-	do
-	{
+	do{
 		// Do DRAM training and update system tasks.
 		// _system_maintainance(&ums);
 
 		// Check for force unmount button combo.
 		if (btn_read_vol() == (BTN_VOL_UP | BTN_VOL_DOWN))
 		{
-			// Check if we are allowed to unload the media.
-			prevent_medium_removal = 0;
-			for(u32 i = 0; i < ums.lun_cnt; i++){
-				prevent_medium_removal |= ums.luns[i].prevent_medium_removal;
-			}
-			if (prevent_medium_removal)
+			if (get_prevent_media_removal(&ums))
 				ums.set_text(ums.label, "Unload prevented");
 			else
 				break;
@@ -1996,14 +1998,13 @@ int usb_device_gadget_ums(usb_ctxt_t *usbs)
 		send_status(&ums, &ums.bulk_ctxt);
 	} while (ums.state != UMS_STATE_TERMINATED);
 
-	if (prevent_medium_removal)
+	if (get_prevent_media_removal(&ums))
 		ums.set_text(ums.label, "ERR: Unsafe eject");
 	else
 		ums.set_text(ums.label, "Disk ejected");
 	goto exit;
 
 error:
-	ums.set_text(ums.label, "ERR: Timeout/canceled");
 	res = 1;
 
 exit:
