@@ -15,11 +15,11 @@ MAX_PAYLOAD_SIZE := 49152
 BUILD_DIR = ./build
 OUT_DIR = ./output
 
-SRC_DIR = ./memloader
+SRC_DIR = ./ums-loader
 
 BDK_DIR = ./bdk
-GFX_DIR = ./memloader/gfx
-STORAGE_DIR = ./memloader/storage
+GFX_DIR = ./ums-loader/gfx
+STORAGE_DIR = ./ums-loader/storage
 
 VPATH = $(dir $(STORAGE_DIR)/) $(dir $(GFX_DIR)/) $(dir $(SRC_DIR)/) $(dir $(BDK_DIR)/) $(BDK_DIR)/ $(dir $(wildcard $(BDK_DIR)/*/)) $(dir $(wildcard $(BDK_DIR)/*/*/))
 
