@@ -21,18 +21,18 @@
 
 #define IPL_LOAD_ADDR             0x40000000 //48K
 
-#define USB_EP_BULK_IN_BUF_ADDR   0x4000c000 //64K
+#define USB_EP_BULK_IN_BUF_ADDR   (IPL_LOAD_ADDR + MAX_PAYLOAD_SIZE) //64K
 #define USB_EP_BULK_IN_MAX_XFER   SZ_64K  
-#define USB_EP_BULK_OUT_BUF_ADDR  0x4001c000 //64K
+#define USB_EP_BULK_OUT_BUF_ADDR  (USB_EP_BULK_IN_BUF_ADDR + SZ_64K) //64K
 #define USB_EP_BULK_OUT_MAX_XFER  SZ_64K
 
-#define IPL_SMALL_FB_ADDR         0x4002c000 //60K
+#define IPL_SMALL_FB_ADDR         (USB_EP_BULK_OUT_BUF_ADDR + SZ_64K) //60K
 
-#define XUSB_RING_ADDR            0x4003b000 //1.5K
+#define XUSB_RING_ADDR            (IPL_SMALL_FB_ADDR + SZ_32K + SZ_16K + SZ_8K + SZ_4K) //1.5K
 
-#define USB_EP_CONTROL_BUF_ADDR   0x4003b600 //1K
+#define USB_EP_CONTROL_BUF_ADDR   (XUSB_RING_ADDR + SZ_1K + (SZ_1K / 2)) //1K
 
-#define IPL_HEAP_START            0x4003ba00
+#define IPL_HEAP_START            (USB_EP_CONTROL_BUF_ADDR + SZ_1K)
 
 #define IPL_STACK_TOP             0x4003ff00
 
@@ -41,6 +41,10 @@
 #define SDMMC_UPPER_BUFFER        USB_EP_BULK_IN_BUF_ADDR
 #define SDMMC_UP_BUF_SZ           USB_EP_BULK_OUT_MAX_XFER
 
+
+#if (IPL_HEAP_START + SZ_16K) > IPL_STACK_TOP
+#error payload too large
+#endif 
 
 /* --- XUSB EP context and TRB ring buffers --- */
 
