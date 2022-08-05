@@ -1,7 +1,7 @@
 -isystem./bdk
--isystem./memloader/gfx
--I./memloader
--DGFX_INC="../memloader/gfx/gfx.h"
+-isystem./ums-loader/gfx
+-I./ums-loader
+-DGFX_INC="../ums-loader/gfx/gfx.h"
 -nostdlib
 -Wall
 -Wno-array-bounds
