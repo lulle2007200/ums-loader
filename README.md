@@ -8,7 +8,7 @@ The payload only uses IRAM. This may be very helpful when your switch has broken
   
 Payload can be configured by writing a configuration to the following offsets:  
   
-Offset: 0xa4  
+Offset: 0x94  
   
 | Bit | Default | Function                                                                                                          |
 |-----|---------|-------------------------------------------------------------------------------------------------------------------|
@@ -16,7 +16,7 @@ Offset: 0xa4
 |     |         | 1: Start UMS automatically, use config in 0xa5                                                                    |
 | 1:2 | 0       | 0: Return to menu after UMS has stopped 1: Power off after UMS has stopped 2: Reboot to RCM after UMS has stopped |
 
-Offset: 0xa5  
+Offset: 0x95  
   
 | Bit | Default | Function                           |
 |-----|---------|------------------------------------|
