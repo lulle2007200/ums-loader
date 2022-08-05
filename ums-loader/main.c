@@ -94,7 +94,7 @@ typedef struct ums_loader_ums_cfg_t{
 
 ums_loader_boot_cfg_t ums_loader_boot_cfg __attribute__((__section__("._ums_loader_cfg"))) = {
 	.magic = 0x1,
-	.config = 0x2,
+	.config = 0x6,
 };
 
 typedef struct ums_toggle_cb_data_t{
@@ -226,7 +226,7 @@ void ums_start(ums_loader_ums_cfg_t *config){
 
 	usb_device_gadget_ums(&usbs);
 
-	msleep(1000);
+	msleep(2000);
 
 	switch(config->stop_action){
 		case MEMLOADER_STOP_ACTION_OFF:
@@ -293,23 +293,23 @@ void main(){
 		if(ums_cfg.storage_state & MEMLOADER_ERROR_EMMC){
 			if(ums_cfg.mount_mode_emmc_gpp != MEMLOADER_NO_MOUNT){
 				not_available = true;
-				gfx_puts("GPP, \n");
+				gfx_puts("GPP, ");
 			}
 			if(ums_cfg.mount_mode_emmc_boot0 != MEMLOADER_NO_MOUNT){
 				not_available = true;
-				gfx_puts("BOOT0, \n");
+				gfx_puts("BOOT0, ");
 			}
 			if(ums_cfg.mount_mode_emmc_boot1 != MEMLOADER_NO_MOUNT){
 				not_available = true;
-				gfx_puts("BOOT1, \n");
+				gfx_puts("BOOT1, ");
 			}
 		}
 		if(not_available){
 			u32 x, y;
 			gfx_con_getpos(&x, &y);
-			gfx_con_setpos(x, y-1);
-			gfx_puts(" \n requested but not\n available!");
-			msleep(5000);
+			gfx_con_setpos(x - 16, y);
+			gfx_puts(" \nrequested but not \navailable!");
+			msleep(2000);
 		}
 	}
 
