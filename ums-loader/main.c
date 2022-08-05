@@ -93,7 +93,7 @@ typedef struct ums_loader_ums_cfg_t{
 }ums_loader_ums_cfg_t;
 
 ums_loader_boot_cfg_t ums_loader_boot_cfg __attribute__((__section__("._ums_loader_cfg"))) = {
-	.magic = 0x0,
+	.magic = 0x1,
 	.config = 0x2,
 };
 
@@ -281,6 +281,37 @@ void main(){
 		ums_cfg.storage_state |= MEMLOADER_ERROR_EMMC;
 	}
 	sdmmc_storage_end(&storage_emmc);
+
+	if(ums_cfg.autostart){
+		gfx_con_setpos(0, 0);
+		gfx_puts("UMS\n\n");
+		bool not_available = false;
+		if(ums_cfg.storage_state & MEMLOADER_ERROR_SD && ums_cfg.mount_mode_sd != MEMLOADER_NO_MOUNT){
+			not_available = true;
+			gfx_puts("SD, ");
+		}
+		if(ums_cfg.storage_state & MEMLOADER_ERROR_EMMC){
+			if(ums_cfg.mount_mode_emmc_gpp != MEMLOADER_NO_MOUNT){
+				not_available = true;
+				gfx_puts("GPP, \n");
+			}
+			if(ums_cfg.mount_mode_emmc_boot0 != MEMLOADER_NO_MOUNT){
+				not_available = true;
+				gfx_puts("BOOT0, \n");
+			}
+			if(ums_cfg.mount_mode_emmc_boot1 != MEMLOADER_NO_MOUNT){
+				not_available = true;
+				gfx_puts("BOOT1, \n");
+			}
+		}
+		if(not_available){
+			u32 x, y;
+			gfx_con_getpos(&x, &y);
+			gfx_con_setpos(x, y-1);
+			gfx_puts(" \n requested but not\n available!");
+			msleep(5000);
+		}
+	}
 
 	if(ums_cfg.storage_state & MEMLOADER_ERROR_SD){
 		ums_cfg.mount_mode_sd = MEMLOADER_NO_MOUNT;
