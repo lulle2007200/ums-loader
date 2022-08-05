@@ -12,7 +12,8 @@ Offset: 0xa4
   
 | Bit | Default | Function                                                                                                          |
 |-----|---------|-------------------------------------------------------------------------------------------------------------------|
-| 0   | 0       | 0: Show the interactive Menu 1: Start UMS automatically, use config in 0xa5                                       |
+| 0   | 0       | 0: Show the interactive Menu                                                                                      |
+|     |         | 1: Start UMS automatically, use config in 0xa5                                                                    |
 | 1:2 | 0       | 0: Return to menu after UMS has stopped 1: Power off after UMS has stopped 2: Reboot to RCM after UMS has stopped |
 
 Offset: 0xa5  
