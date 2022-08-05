@@ -12,7 +12,7 @@ Offset: 0x94
   
 | Bit | Default | Function                                                                                                          |
 |-----|---------|-------------------------------------------------------------------------------------------------------------------|
-| 0   | 0       | 0: Show the interactive Menu                                                                                      |
+| 0   | 0       | 0: Show the interactive Menu, config in 0x95 is used as preset                                                    |
 |     |         | 1: Start UMS automatically, use config in 0x95                                                                    |
 | 1:2 | 0       | 0: Return to menu after UMS has stopped                                                                           |
 |     |         | 1: Power off after UMS has stopped                                                                                |
