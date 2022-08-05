@@ -15,41 +15,41 @@
 #include <gfx_utils.h>
 #include <tui.h>
 
-//TODO: periodically check if emmc/sd are available
-//      show a warning if sd/emmc volumes where requested, but sd/emmc not available
-//      change fb format to 4bpp
-//      add magic config to set behaviour after ums stops (reboot rcm or power off)
-
 // Offset: 0xa4
 // +-----+---------+------------------------------------+
 // | Bit | Default | Function                           |
 // +-----+---------+------------------------------------+
-// | 0   | 0       | 0: Don't use config at offset 0xa5 |
-// |     |         | 1: Use config at offset 0xa5. UMS  |
-// |     |         |    Starts automatically, switch    |
-// |     |         |    powers off, after UMS stopped   |
+// | 0   | 0       | 0: Show the interactive menu       |
+// |     |         | 1: Start UMS automatically and use |
+// |     |         |    the configuration in 0xa5       |
+// +-----+---------+------------------------------------+
+// | 1:2 | 0       | 0: Return to menu after UMS has    |
+// |     |         |    stopped                         |
+// |     |         | 1: Power off after UMS has stopped |
+// |     |         | 2: Reboot to RCM after UMS has     |
+// |     |         |    stopped                         |
 // +-----+---------+------------------------------------+
 
 // Offset: 0xa5
-// +-----+---------+-----------------------------------+
-// | Bit | Default | Function                          |
-// +-----+---------+-----------------------------------+
-// | 0:1 | 2       | 0: Don't mount SD                 |
-// |     |         | 1: Mount SD as read-only          |
-// |     |         | 2: Mount SD as read/write         |
-// +-----+---------+-----------------------------------+
-// | 2:3 | 0       | 0: Don't mount EMMC-GPP           |
-// |     |         | 1: Mount EMMC-GPP as read-only    |
-// |     |         | 2: Mount EMMC-GPP as read/write   |
-// +-----+---------+-----------------------------------+
-// | 4:5 | 0       | 0: Don't mount EMMC-BOOT0         |
-// |     |         | 1: Mount EMMC-BOOT0 as read-only  |
-// |     |         | 2: Mount EMMC-BOOT0 as read/write |
-// +-----+---------+-----------------------------------+
-// | 6:7 | 0       | 0: Don't mount EMMC-BOOT1         |
-// |     |         | 1: Mount SD EMMC-BOOT1 read-only  |
-// |     |         | 2: Mount SD EMMC-BOOT1 read/write |
-// +-----+---------+-----------------------------------+
+// +-----+---------+------------------------------------+
+// | Bit | Default | Function                           |
+// +-----+---------+------------------------------------+
+// | 0:1 | 2       | 0: Don't mount SD                  |
+// |     |         | 1: Mount SD as read-only           |
+// |     |         | 2: Mount SD as read/write          |
+// +-----+---------+------------------------------------+
+// | 2:3 | 0       | 0: Don't mount EMMC-GPP            |
+// |     |         | 1: Mount EMMC-GPP as read-only     |
+// |     |         | 2: Mount EMMC-GPP as read/write    |
+// +-----+---------+------------------------------------+
+// | 4:5 | 0       | 0: Don't mount EMMC-BOOT0          |
+// |     |         | 1: Mount EMMC-BOOT0 as read-only   |
+// |     |         | 2: Mount EMMC-BOOT0 as read/write  |
+// +-----+---------+------------------------------------+
+// | 6:7 | 0       | 0: Don't mount EMMC-BOOT1          |
+// |     |         | 1: Mount SD EMMC-BOOT1 read-only   |
+// |     |         | 2: Mount SD EMMC-BOOT1 read/write  |
+// +-----+---------+------------------------------------+
 
 #define MEMLOADER_NO_MOUNT              0
 #define MEMLOADER_RO                    1
@@ -60,10 +60,17 @@
 #define MEMLOADER_EMMC_BOOT0            2
 #define MEMLOADER_EMMC_BOOT1            3
 
+#define MEMLOADER_AUTOSTART_MASK        0x01
+#define MEMLOADER_AUTOSTART_YES         0x01
+#define MEMLOADER_AUTOSTART_NO          0x00
+
+#define MEMLOADER_STOP_ACTION_MASK      0x06
+#define MEMLOADER_STOP_ACTION_MENU      0x00  
+#define MEMLOADER_STOP_ACTION_OFF       0x02
+#define MEMLOADER_STOP_ACTION_RCM       0x04 
+
 #define MEMLOADER_ERROR_SD              0x01
 #define MEMLOADER_ERROR_EMMC            0x02
-
-#define MEMLOADER_MAGIC_CONFIG_PROVIDED 0x01
 
 typedef struct __attribute__((__packed__)) memloader_boot_cfg_t{
 	u8 magic;
@@ -81,13 +88,14 @@ typedef struct memloader_ums_cfg_t{
 		};
 	};
 	u32 memloader_state;
+	u32 stop_action;
+	bool autostart;
 }memloader_ums_cfg_t;
 
 memloader_boot_cfg_t memloader_boot_cfg __attribute__((__section__("._memloader_cfg"))) = {
-	.magic = 0,
+	.magic = 0x0,
 	.config = 0x2,
 };
-
 
 typedef struct ums_toggle_cb_data_t{
 	tui_entry_t *entry;
@@ -139,16 +147,19 @@ void ums_cfg_menu_toggle_cb(void *data){
 
 
 void ums_start(memloader_ums_cfg_t *config){
-
 	gfx_clear_color(0x0);
 	gfx_con_setpos(0, 0);
 	gfx_con_setcol(TUI_COL_FG, 1, TUI_COL_BG);
 
-	gfx_printf("Started UMS\n\nVolume Mount\n");
+	gfx_printf("Running UMS\n\n");
+	gfx_con_setcol(TUI_COL_DISABLED_FG, true, TUI_COL_DISABLED_BG);
+	gfx_printf("Volume Mount\n");
 
 	for(u32 i = MEMLOADER_SD; i <= MEMLOADER_EMMC_BOOT1; i++){
 		gfx_printf("%s\n", toggle_menu_strings[i][config->mount_modes[i]]);
 	}
+
+	gfx_con_setcol(TUI_COL_FG, 1, TUI_COL_BG);
 
 	gfx_printf("\nTo stop, hold\n VOL+ and VOL-, or\n eject all volumes\n safely.\n\nStatus:\n");
 
@@ -216,6 +227,18 @@ void ums_start(memloader_ums_cfg_t *config){
 	usb_device_gadget_ums(&usbs);
 
 	msleep(1000);
+
+	switch(config->stop_action){
+		case MEMLOADER_STOP_ACTION_OFF:
+			power_set_state(POWER_OFF);
+			break;
+		case MEMLOADER_STOP_ACTION_RCM:
+			power_set_state(REBOOT_RCM);
+			break;
+		case MEMLOADER_STOP_ACTION_MENU:
+		default:
+			break;
+	}
 }
 
 void ums_menu_cb(void *data){
@@ -236,24 +259,15 @@ void menu_reload_cb(void *data){
 	_reset();
 }
 
-extern u32 get_stack(void);
-
-void ipl_main(){
-	hw_init();
-	// pivot_stack(IPL_STACK_TOP);
-	heap_init(IPL_HEAP_START);
-
-	mc_enable_ahb_redirect(true);
-
-	display_init();
-	u8 *fb = display_init_small_framebuffer_pitch1();
-
-	gfx_init_ctxt(fb, 180, 320, 192);
-	gfx_con_init();
-	display_backlight_pwm_init();
-
-	display_backlight_brightness(255, 1000);
+void main(){
 	memloader_ums_cfg_t ums_cfg = {0};
+
+	for(u32 i = MEMLOADER_SD; i <= MEMLOADER_EMMC_BOOT1; i++){
+		ums_cfg.mount_modes[i] = (memloader_boot_cfg.config >> 2 * i) & 0x3;
+	}
+
+	ums_cfg.autostart = (memloader_boot_cfg.magic & MEMLOADER_AUTOSTART_MASK) == MEMLOADER_AUTOSTART_YES;
+	ums_cfg.stop_action = (memloader_boot_cfg.magic & MEMLOADER_STOP_ACTION_MASK);
 
 	if(!sd_initialize(false)){
 		ums_cfg.memloader_state |= MEMLOADER_ERROR_SD;
@@ -268,16 +282,18 @@ void ipl_main(){
 	}
 	sdmmc_storage_end(&storage_emmc);
 
-	
-	ums_cfg.mount_mode_sd = ums_cfg.memloader_state & MEMLOADER_ERROR_SD ? 0 : MEMLOADER_RW;
-
-	if(memloader_boot_cfg.magic == MEMLOADER_MAGIC_CONFIG_PROVIDED){
-		for(u32 i = MEMLOADER_SD; i <= MEMLOADER_EMMC_BOOT1; i++){
-			ums_cfg.mount_modes[i] = (memloader_boot_cfg.config >> 2 * i) & 0x3;
+	if(ums_cfg.memloader_state & MEMLOADER_ERROR_SD){
+		ums_cfg.mount_mode_sd = MEMLOADER_NO_MOUNT;
+	}
+	if(ums_cfg.memloader_state & MEMLOADER_ERROR_EMMC){
+		for(u32 i = MEMLOADER_EMMC_GPP; i <= MEMLOADER_EMMC_BOOT1; i++){
+			ums_cfg.mount_modes[i] = MEMLOADER_NO_MOUNT;
 		}
+	}
+
+	if(ums_cfg.autostart){
+		ums_cfg.autostart = false;
 		ums_start(&ums_cfg);
-		power_set_state(POWER_OFF);
-		return;
 	}
 
 	ums_toggle_cb_data_t ums_toggle_cb_data[4] = {
@@ -327,4 +343,23 @@ void ipl_main(){
 	tui_menu_start(&ums_menu);
 
 	power_set_state(POWER_OFF);
+}
+
+
+void ipl_main(){
+	hw_init();
+	pivot_stack(IPL_STACK_TOP);
+	heap_init(IPL_HEAP_START);
+
+	mc_enable_ahb_redirect(true);
+
+	display_init();
+	u8 *fb = display_init_small_framebuffer_pitch1();
+
+	gfx_init_ctxt(fb, 180, 320, 192);
+	gfx_con_init();
+	display_backlight_pwm_init();
+
+	display_backlight_brightness(255, 1000);
+	main();
 }
