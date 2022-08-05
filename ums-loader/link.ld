@@ -5,7 +5,7 @@ SECTIONS {
 	. = __ipl_start;
 	.text : {
 		*(.text._start);
-		KEEP(*(._memloader_cfg));
+		KEEP(*(._ums_loader_cfg));
 		*(.text._irq_setup);
 		*(.text*);
 	}
