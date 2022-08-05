@@ -4,9 +4,6 @@
 #include <gfx_utils.h>
 #include <utils/btn.h>
 
-#define X() gfx_printf("%d\n", __LINE__)
-
-
 static bool tui_entry_is_selectable(tui_entry_t *entry){	
 	if(entry->type == TUI_ENTRY_TYPE_MENU ||
 	   entry->type == TUI_ENTRY_TYPE_ACTION ||
@@ -17,8 +14,6 @@ static bool tui_entry_is_selectable(tui_entry_t *entry){
 	return(false);
 }
 
-extern u32 get_sp(void);
-
 tui_status_t tui_menu_start(tui_entry_menu_t *menu){
 
 	tui_entry_t *selected = NULL;
@@ -28,7 +23,6 @@ tui_status_t tui_menu_start(tui_entry_menu_t *menu){
 			break;
 		}
 	}
-
 
 	if(!selected){
 		return(TUI_ERR_NO_SELECTABLE_ENTRY);
