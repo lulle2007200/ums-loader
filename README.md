@@ -1,6 +1,7 @@
 **Payload to mount SD and/or EMMC via USB.**
 
-Menu should be pretty self explanatory, allows to mount SD Card and all EMMC Partitions in read-only or read/write mode.  
+Inject the payload with the payload injector of you choice, the on screen menu should be pretty self explanatory. 
+You can mount SD card and the EMMC partitions in read-only or read/write mode. 
 
 It does not depend on any files on the SD card (unlike e.g. hekate which needs nyx to be present on SD card), just inject the payload and select the volumes you want to mount.
   
