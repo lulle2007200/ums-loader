@@ -1,15 +1,18 @@
 #include <gfx.h>
 #include <mem/mc.h>
 #include <soc/hw_init.h>
+#include <storage/nx_emmc.h>
 #include <storage/nx_sd.h>
 #include <mem/heap.h>
 #include <memory_map.h>
 #include <storage/sdmmc.h>
+#include <storage/mbr_gpt.h>
 #include <string.h>
 #include <usb/usbd.h>
 #include <utils/btn.h>
 #include <utils/types.h>
 #include <utils/util.h>
+#include <utils/sprintf.h>
 
 #include <display/di.h>
 #include <gfx_utils.h>
@@ -245,6 +248,293 @@ void ums_menu_cb(void *data){
 	ums_start((ums_loader_ums_cfg_t*)data);
 }
 
+static const char *sub_storage_device_strings[] = {
+	[MEMLOADER_SD]         = "Device SD           ",
+	[MEMLOADER_EMMC_GPP]   = "Device GPP          ",
+	[MEMLOADER_EMMC_BOOT0] = "Device BOOT0        ",
+	[MEMLOADER_EMMC_BOOT1] = "Device BOOT1        ",
+};
+
+#define MEMLOADER_SUBSTORAGE_BY_PART   0
+#define MEMLOADER_SUBSTORAGE_BY_OFFSET 1
+
+static const char *sub_storage_mode_strings[] = {
+	[MEMLOADER_SUBSTORAGE_BY_PART]   = "  Mode Partition    ",
+	[MEMLOADER_SUBSTORAGE_BY_OFFSET] = "  Mode Offset + Size"
+};
+
+typedef struct part_entry{
+	u32 offset;
+	u32 size;
+}part_entry_t;
+
+typedef struct part_table{
+	u8 n_parts;
+	part_entry_t parts[30];
+}part_table_t;
+
+typedef struct sub_storage_cfg{
+	ums_loader_ums_cfg_t *ums_cfg;
+	part_table_t part_table;
+	u32 offset;
+	u32 size;
+	u8 device;
+	u8 mode;
+	u8 part;
+}sub_storage_cfg_t;
+
+typedef struct sub_storage_toggle_data{
+	tui_entry_t *entry;
+	tui_entry_t *menu;
+	sub_storage_cfg_t *sub_cfg;
+}sub_storage_toggle_data_t;
+
+void load_part_table(sub_storage_cfg_t *sub_cfg){
+	// gfx_printf("start load part table\n");
+	// sdmmc_storage_t *storage;
+	// memset(&sub_cfg->part_table, 0, sizeof(part_table_t));
+
+	// switch(sub_cfg->device){
+	// case MEMLOADER_SD:
+	// 	gfx_printf("is sd\n");
+	// 	storage = &sd_storage;
+	// 	if(!sd_initialize(false)){
+	// 		sdmmc_storage_end(&sd_storage);
+	// 		return;
+	// 	};
+	// 	break;
+	// case MEMLOADER_EMMC_BOOT0:
+	// case MEMLOADER_EMMC_BOOT1:
+	// 	return;
+	// case MEMLOADER_EMMC_GPP:
+	// 	gfx_printf("is gpp\n");
+	// 	storage = &emmc_storage;
+	// 	if(!sdmmc_storage_init_mmc(&emmc_storage, &emmc_sdmmc, SDMMC_BUS_WIDTH_8, SDHCI_TIMING_MMC_HS400)){
+	// 		sdmmc_storage_end(&emmc_storage);
+	// 		return;
+	// 	}
+	// 	emmc_set_partition(EMMC_GPP);
+	// 	break;
+	// default:
+	// 	gfx_printf("ERROR\n");
+	// 	usleep(500000);
+	// }
+
+	// gpt_t gpt;
+
+	// gfx_printf("Start reading GPT\n");
+
+	// sdmmc_storage_read(storage, 1, (sizeof(gpt_t) + 511) / 512, &gpt);
+	// gfx_printf("Done reading GPT\n");
+
+	// if(gpt.header.signature == EFI_PART){
+	// 	gfx_printf("GPT found\n");
+
+	// 	for(u8 i = 0; i < MIN(30, gpt.header.num_part_ents); i++){
+	// 		sub_cfg->part_table.parts[i].offset = gpt.entries[i].lba_start;
+	// 		sub_cfg->part_table.parts[i].size = gpt.entries[i].lba_end - gpt.entries[i].lba_start + 1;
+	// 	}
+	// 	sub_cfg->part_table.n_parts = MIN(30, gpt.header.num_part_ents);
+
+	// 	return;
+	// }
+
+	// mbr_t a;
+	// mbr_t *mbr = &a;//(mbr_t*)SDMMC_UPPER_BUFFER;
+
+	// gfx_printf("Start reading MBR\n");
+	// sdmmc_storage_read(storage, 0, 1, mbr);
+	// gfx_printf("Start reading MBR\n");
+	
+	// if(mbr->signature == MBR_MAGIC){
+	// 	gfx_printf("MBR found\n");
+
+	// }
+}
+
+void ums_sub_storage_size_update(tui_entry_t *entry){
+	sub_storage_toggle_data_t *data = (sub_storage_toggle_data_t*)entry->action.data;
+	if(data->sub_cfg->mode != MEMLOADER_SUBSTORAGE_BY_OFFSET){
+		entry->disabled = true;
+	}else{
+		entry->disabled = false;
+	}
+	s_printf((char*)entry->title.text, "  Size 0x%08x   ", data->sub_cfg->size);
+}
+
+void ums_sub_storage_offset_update(tui_entry_t *entry){
+	sub_storage_toggle_data_t *data = (sub_storage_toggle_data_t*)entry->action.data;
+	if(data->sub_cfg->mode != MEMLOADER_SUBSTORAGE_BY_OFFSET){
+		entry->disabled = true;
+	}else{
+		entry->disabled = false;
+	}
+	s_printf((char*)entry->title.text, "Offset 0x%08x   ", data->sub_cfg->offset);
+}
+
+void ums_sub_storage_part_update(tui_entry_t *entry){
+	sub_storage_toggle_data_t *data = entry->action.data;
+	u8 part = data->sub_cfg->part;
+	if(part > 99){
+		part = 99;
+	}
+
+	if(data->sub_cfg->mode != MEMLOADER_SUBSTORAGE_BY_PART){
+		entry->disabled = true;
+	}else{
+		entry->disabled = false;
+	}
+
+	s_printf((char*)data->entry->title.text, " Part. %02d           ", part);
+
+	data->sub_cfg->offset = data->sub_cfg->part_table.parts[data->sub_cfg->part].offset;
+	data->sub_cfg->size = data->sub_cfg->part_table.parts[data->sub_cfg->part].size;
+
+	ums_sub_storage_offset_update(&data->menu[3]);
+	ums_sub_storage_size_update(&data->menu[4]);
+}
+
+
+void ums_sub_storage_mode_update(tui_entry_t *entry){
+	sub_storage_toggle_data_t *data = (sub_storage_toggle_data_t*)entry->action.data;
+
+	if(data->sub_cfg->part_table.n_parts == 0 || data->sub_cfg->mode == MEMLOADER_EMMC_BOOT0 || data->sub_cfg->mode == MEMLOADER_EMMC_BOOT1){
+		data->sub_cfg->mode = MEMLOADER_SUBSTORAGE_BY_OFFSET;
+		entry->disabled = true;
+	}else{
+		entry->disabled = false;
+	}
+
+	entry->title.text = sub_storage_mode_strings[data->sub_cfg->mode];
+
+	ums_sub_storage_part_update(&data->menu[2]);
+	ums_sub_storage_offset_update(&data->menu[3]);
+	ums_sub_storage_size_update(&data->menu[4]);
+}
+
+void ums_sub_storage_device_toggle_cb(void *data){
+	sub_storage_toggle_data_t *toggle_data = (sub_storage_toggle_data_t*)data;
+
+	u8 prev = toggle_data->sub_cfg->device;
+
+	switch(toggle_data->sub_cfg->device){
+	case MEMLOADER_SD:
+		if(!(toggle_data->sub_cfg->ums_cfg->storage_state & MEMLOADER_ERROR_EMMC)){
+			toggle_data->sub_cfg->device++;
+		}
+		break;
+	case MEMLOADER_EMMC_GPP:
+	case MEMLOADER_EMMC_BOOT0:
+		toggle_data->sub_cfg->device++;
+		break;
+	case MEMLOADER_EMMC_BOOT1:
+		if(!(toggle_data->sub_cfg->ums_cfg->storage_state & MEMLOADER_SD)){
+			toggle_data->sub_cfg->device = MEMLOADER_SD;
+		}else{
+			toggle_data->sub_cfg->device = MEMLOADER_EMMC_GPP;
+		}
+		break;
+	}
+
+	if(prev != toggle_data->sub_cfg->device){
+		toggle_data->entry->title.text = sub_storage_device_strings[toggle_data->sub_cfg->device];
+
+		switch(toggle_data->sub_cfg->device){
+		case MEMLOADER_SD:
+		case MEMLOADER_EMMC_GPP:
+			load_part_table(toggle_data->sub_cfg);
+			toggle_data->sub_cfg->offset = 0;
+			toggle_data->sub_cfg->size   = 0;
+			toggle_data->sub_cfg->part   = 0;
+			break;
+		}
+
+		ums_sub_storage_mode_update(&toggle_data->menu[1]);
+	}
+}
+
+
+void ums_sub_storage_mode_toggle_cb(void *data){
+	sub_storage_toggle_data_t *toggle_data = (sub_storage_toggle_data_t*)data;
+
+	switch(toggle_data->sub_cfg->mode){
+	case MEMLOADER_SUBSTORAGE_BY_OFFSET:
+		if(toggle_data->sub_cfg->part_table.n_parts > 0){
+			toggle_data->sub_cfg->mode = MEMLOADER_SUBSTORAGE_BY_PART;
+		}
+		break;
+	case MEMLOADER_SUBSTORAGE_BY_PART:
+		toggle_data->sub_cfg->mode = MEMLOADER_SUBSTORAGE_BY_OFFSET;
+		break;
+	}
+
+	ums_sub_storage_mode_update(toggle_data->entry);
+}
+
+void ums_sub_storage_part_toggle_cb(void *data){
+	sub_storage_toggle_data_t *toggle_data = (sub_storage_toggle_data_t*)data;
+
+	toggle_data->sub_cfg->part = (toggle_data->sub_cfg->part + 1) % toggle_data->sub_cfg->part_table.n_parts;
+
+	ums_sub_storage_part_update(toggle_data->entry);
+}
+
+void ums_sub_storage_offset_cb(void *data){
+	sub_storage_toggle_data_t *toggle_data = (sub_storage_toggle_data_t*)data;
+	ums_sub_storage_offset_update(toggle_data->entry);
+}
+
+
+void ums_sub_storage_size_cb(void *data){
+	sub_storage_toggle_data_t *toggle_data = (sub_storage_toggle_data_t*)data;
+	ums_sub_storage_size_update(toggle_data->entry);
+}
+
+void ums_sub_storage_cb(void *data){
+	ums_loader_ums_cfg_t *ums_cfg = (ums_loader_ums_cfg_t*)data;
+	sub_storage_cfg_t sub_storage_cfg = {.ums_cfg = ums_cfg, .device = MEMLOADER_SD, .mode = MEMLOADER_SUBSTORAGE_BY_PART};
+
+	sub_storage_toggle_data_t mode_data   = {.sub_cfg = &sub_storage_cfg};
+	sub_storage_toggle_data_t dev_data    = {.sub_cfg = &sub_storage_cfg};
+	sub_storage_toggle_data_t part_data   = {.sub_cfg = &sub_storage_cfg};
+	sub_storage_toggle_data_t size_data   = {.sub_cfg = &sub_storage_cfg};
+	sub_storage_toggle_data_t offset_data = {.sub_cfg = &sub_storage_cfg};
+
+	//0xabcdefgh
+	char sub_storage_part_str[25] = "";
+	char sub_storage_offset[25]   = "";
+	char sub_storage_size[25]     = "";
+
+	// load_part_table(&sub_storage_cfg);
+
+	tui_entry_t sub_storage_entries[] = {
+		[0] = TUI_ENTRY_ACTION_NO_BLANK(sub_storage_device_strings[dev_data.sub_cfg->device], ums_sub_storage_device_toggle_cb, &dev_data, false, &sub_storage_entries[1]),
+		[1] = TUI_ENTRY_ACTION_NO_BLANK(sub_storage_mode_strings[MEMLOADER_SUBSTORAGE_BY_PART], ums_sub_storage_mode_toggle_cb, &mode_data, false, &sub_storage_entries[2]),
+		[2] = TUI_ENTRY_ACTION_NO_BLANK(sub_storage_part_str, ums_sub_storage_part_toggle_cb, &part_data, sub_storage_cfg.mode != MEMLOADER_SUBSTORAGE_BY_PART, &sub_storage_entries[3]),
+		[3] = TUI_ENTRY_ACTION_NO_BLANK(sub_storage_offset, ums_sub_storage_offset_cb, &offset_data, sub_storage_cfg.mode != MEMLOADER_SUBSTORAGE_BY_OFFSET, &sub_storage_entries[4]),
+		[4] = TUI_ENTRY_ACTION_NO_BLANK(sub_storage_size, ums_sub_storage_size_cb, &size_data, sub_storage_cfg.mode != MEMLOADER_SUBSTORAGE_BY_OFFSET, &sub_storage_entries[5]),
+		[5] = TUI_ENTRY_TEXT("\n", &sub_storage_entries[6]),
+		[6] = TUI_ENTRY_BACK(NULL)
+	};
+
+	dev_data.entry    = &sub_storage_entries[0];
+	dev_data.menu     = sub_storage_entries;
+	mode_data.entry   = &sub_storage_entries[1];
+	mode_data.menu    = sub_storage_entries;
+	part_data.entry   = &sub_storage_entries[2];
+	part_data.menu    = sub_storage_entries;
+	offset_data.entry = &sub_storage_entries[3];
+	offset_data.menu  = sub_storage_entries;
+	size_data.entry   = &sub_storage_entries[4];
+	size_data.menu    = sub_storage_entries;
+
+	ums_sub_storage_mode_update(mode_data.entry);
+
+	tui_entry_menu_t sub_menu = {{"Substorage Mount"}, sub_storage_entries};
+
+	tui_menu_start(&sub_menu);
+}
+
 void menu_power_off_cb(void *data){
 	power_set_state(POWER_OFF);
 }
@@ -273,14 +563,10 @@ void main(){
 		ums_cfg.storage_state |= MEMLOADER_ERROR_SD;
 	}
 	sd_end();
-
-	sdmmc_storage_t storage_emmc;
-	sdmmc_t sdmmc_emmc;
-
-	if(!sdmmc_storage_init_mmc(&storage_emmc, &sdmmc_emmc, SDMMC_BUS_WIDTH_8, SDHCI_TIMING_MMC_HS400)){
+	if(!sdmmc_storage_init_mmc(&emmc_storage, &emmc_sdmmc, SDMMC_BUS_WIDTH_8, SDHCI_TIMING_MMC_HS400)){
 		ums_cfg.storage_state |= MEMLOADER_ERROR_EMMC;
 	}
-	sdmmc_storage_end(&storage_emmc);
+	sdmmc_storage_end(&emmc_storage);
 
 	if(ums_cfg.autostart){
 		gfx_con_setpos(0, 0);
@@ -356,9 +642,11 @@ void main(){
 		[5] = TUI_ENTRY_TEXT("\n", &ums_menu_entries[6]),
 		[6] = TUI_ENTRY_ACTION("Start UMS", ums_menu_cb, &ums_cfg, false, &ums_menu_entries[7]),
 		[7] = TUI_ENTRY_TEXT("\n", &ums_menu_entries[8]),
-		[8] = TUI_ENTRY_ACTION("Reload", menu_reload_cb, NULL, false, &ums_menu_entries[9]),
-		[9] = TUI_ENTRY_ACTION("Reboot RCM", menu_reboot_rcm_cb, NULL, false, &ums_menu_entries[10]),
-		[10] = TUI_ENTRY_ACTION("Power Off", menu_power_off_cb, NULL, false, NULL),
+		[8] = TUI_ENTRY_ACTION("Mount Substorage", ums_sub_storage_cb, &ums_cfg, ums_cfg.storage_state & MEMLOADER_ERROR_EMMC && ums_cfg.storage_state & MEMLOADER_ERROR_SD, &ums_menu_entries[9]),
+		[9] = TUI_ENTRY_TEXT("\n", &ums_menu_entries[10]),
+ 		[10] = TUI_ENTRY_ACTION("Reload", menu_reload_cb, NULL, false, &ums_menu_entries[11]),
+		[11] = TUI_ENTRY_ACTION("Reboot RCM", menu_reboot_rcm_cb, NULL, false, &ums_menu_entries[12]),
+		[12] = TUI_ENTRY_ACTION("Power Off", menu_power_off_cb, NULL, false, NULL),
 	};
 
 
@@ -385,7 +673,7 @@ void ipl_main(){
 	mc_enable_ahb_redirect(true);
 
 	display_init();
-	u8 *fb = display_init_small_framebuffer_pitch1();
+	u8 *fb = (u8*)display_init_small_framebuffer_pitch1();
 
 	gfx_init_ctxt(fb, 180, 320, 192);
 	gfx_con_init();

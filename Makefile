@@ -33,7 +33,7 @@ OBJS = $(addprefix $(BUILD_DIR)/$(TARGET)/, \
     max7762x.o bq24193.o max77620-rtc.o \
     sdmmc.o nx_sd.o sdmmc_driver.o \
 	usb_gadget_ums.o usb_descriptors.o xusbd.o sprintf.o \
-	di.o gfx.o tui.o)
+	di.o gfx.o tui.o nx_emmc.o)
 
 GFX_INC = '"../$(GFX_DIR)/gfx.h"'
 INC_DIR = -I./$(BDK_DIR) -I./$(SRC_DIR) -I./$(GFX_DIR)
