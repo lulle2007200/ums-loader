@@ -91,7 +91,8 @@ tui_status_t tui_menu_start(tui_entry_menu_t *menu){
 				case TUI_ENTRY_TYPE_ACTION_NO_BLANK:
 					if(!selected->disabled){
 						selected->action.cb(selected->action.data);
-					} 
+					}
+					break;
 				case TUI_ENTRY_TYPE_ACTION:
 					if(!selected->disabled){
 						selected->action.cb(selected->action.data);
