@@ -8,7 +8,7 @@ include $(DEVKITARM)/base_rules
 ################################################################################
 
 IPL_LOAD_ADDR := 0x40000000
-MAX_PAYLOAD_SIZE := 49152
+MAX_PAYLOAD_SIZE := 53248
 
 ################################################################################
 
@@ -41,7 +41,7 @@ INC_DIR = -I./$(BDK_DIR) -I./$(SRC_DIR) -I./$(GFX_DIR)
 CUSTOMDEFINES += -DGFX_INC=$(GFX_INC) -DMAX_PAYLOAD_SIZE=$(MAX_PAYLOAD_SIZE)
 
 WARNINGS := -Wall -Wno-array-bounds -Wno-stringop-overread -Wno-stringop-overflow
-ARCH := -march=armv4t -mtune=arm7tdmi -mthumb-interwork -mthumb -Wstack-usage=2048
+ARCH := -march=armv4t -mtune=arm7tdmi -mthumb-interwork -mthumb -Wstack-usage=4096
 CFLAGS = $(ARCH) -O2 -flto -g -nostdlib -ffunction-sections -fdata-sections -std=gnu11  $(WARNINGS) $(CUSTOMDEFINES) -fno-inline
 LDFLAGS = $(ARCH) -nostartfiles -lgcc -Wl,--nmagic,--gc-sections -Xlinker --defsym=IPL_LOAD_ADDR=$(IPL_LOAD_ADDR)
 
