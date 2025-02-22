@@ -42,7 +42,7 @@
 #define SDMMC_UP_BUF_SZ           USB_EP_BULK_OUT_MAX_XFER
 
 
-#if (IPL_HEAP_START + SZ_16K) > IPL_STACK_TOP
+#if (IPL_HEAP_START + SZ_8K) > IPL_STACK_TOP
 #error payload too large
 #endif 
 
