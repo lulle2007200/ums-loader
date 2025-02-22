@@ -49,6 +49,17 @@ tui_status_t tui_menu_start(tui_entry_menu_t *menu){
 					break;
 			}
 
+			switch(current->type){
+			case TUI_ENTRY_TYPE_ACTION:
+			case TUI_ENTRY_TYPE_ACTION_NO_BLANK:
+				u32 x, y;
+				gfx_con_getpos(&x, &y);
+				current->action.y_pos = y;
+				break;
+			default:
+				break;
+			}
+
 			if(current == selected){
 				if(current->disabled){
 					gfx_con_setcol(TUI_COL_SELECTED_DISABLED_FG, true, TUI_COL_SELECTED_DISABLED_BG);

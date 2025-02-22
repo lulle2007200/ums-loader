@@ -109,6 +109,7 @@ typedef struct tui_entry_action_t{
 	tui_text_t title;
 	void *data;
 	tui_action_cb_t cb;
+	u8 y_pos;
 }tui_entry_action_t;
 
 struct tui_entry_t{
