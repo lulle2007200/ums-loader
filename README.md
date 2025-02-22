@@ -4,6 +4,8 @@ Inject the payload with the payload injector of you choice, the on screen menu s
 You can mount SD card and the EMMC partitions in read-only or read/write mode. 
 
 It does not depend on any files on the SD card (unlike e.g. hekate which needs nyx to be present on SD card), just inject the payload and select the volumes you want to mount.
+
+The "Mount substorage" submenu allows you to mount a GPT/MBR partition as a drive, you can also specify offset and size of the sub drive manually.
   
 The payload only uses IRAM. This may be very helpful when your switch has broken RAM. 
   
