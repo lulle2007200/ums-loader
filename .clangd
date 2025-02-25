@@ -1,5 +1,5 @@
 CompileFlags:
-  Compiler: "C:\Users\Christoph\AppData\Local\devkitPro\devkitARM\bin\arm-none-eabi-gcc.exe"
+  Compiler: C:\Users\Christoph\AppData\Local\devkitPro\devkitARM\bin\arm-none-eabi-gcc.exe
   Add:
     - -I.\bdk
     - -I.\ums-loader\gfx
