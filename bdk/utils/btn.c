@@ -34,6 +34,36 @@ u8 btn_read()
 	return res;
 }
 
+static bool btn_is_single(u8 btn){
+	if(btn == BTN_VOL_DOWN ||
+	   btn == BTN_VOL_UP   ||
+	   btn == BTN_POWER){
+		return(true);
+	}
+	return(false);
+}
+
+u8 btn_wait_for_single(){
+	u8 mask = btn_read();
+	while(true){
+		u8 btn = btn_read();
+		if(!mask && btn_is_single(btn)){
+			return btn;
+		}
+		mask = mask & btn;
+	}
+}
+
+u8 btn_wait_for_change_timeout(u32 timeout, u8 initial){
+	u32 time_start = get_tmr_ms();
+	while(true){
+		u8 btn = btn_read();
+		if(btn != initial || (get_tmr_ms() - time_start) > timeout){
+			return btn;
+		}
+	}
+}
+
 u8 btn_read_vol()
 {
 	u8 res = 0;
@@ -83,15 +113,6 @@ u8 btn_wait_timeout(u32 time_ms, u8 mask)
 	};
 
 	return res;
-}
-
-static bool btn_is_single(u8 btn){
-	if(btn == BTN_VOL_DOWN ||
-	   btn == BTN_VOL_UP   ||
-	   btn == BTN_POWER){
-		return(true);
-	}
-	return(false);
 }
 
 u8 btn_wait_timeout_single1(u32 time_ms){
