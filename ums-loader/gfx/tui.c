@@ -4,14 +4,19 @@
 #include <gfx_utils.h>
 #include <utils/btn.h>
 
-static bool tui_entry_is_selectable(tui_entry_t *entry){	
-	if(entry->type == TUI_ENTRY_TYPE_MENU ||
-	   entry->type == TUI_ENTRY_TYPE_ACTION ||
-	   entry->type == TUI_ENTRY_TYPE_ACTION_NO_BLANK ||
-	   entry->type == TUI_ENTRY_TYPE_BACK){
-	   	return(true);
+static bool tui_entry_is_selectable(tui_entry_t *entry){
+	if(entry->disabled){
+		return false;
 	}
-	return(false);
+	switch(entry->type){
+	case TUI_ENTRY_TYPE_MENU:
+	case TUI_ENTRY_TYPE_BACK:
+	case TUI_ENTRY_TYPE_ACTION:
+	case TUI_ENTRY_TYPE_ACTION_NO_BLANK:
+		return true;
+	default:
+		return false;
+	}
 }
 
 tui_status_t tui_menu_start(tui_entry_menu_t *menu){
