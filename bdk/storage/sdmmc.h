@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2018 naehrwert
- * Copyright (c) 2018-2021 CTCaer
+ * Copyright (c) 2018-2022 CTCaer
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -19,7 +19,11 @@
 #define _SDMMC_H_
 
 #include <utils/types.h>
+#include <storage/sd_def.h>
 #include <storage/sdmmc_driver.h>
+
+#define SDMMC_CMD_BLOCKSIZE 64
+#define SDMMC_DAT_BLOCKSIZE 512
 
 extern u32 sd_power_cycle_time_start;
 
@@ -129,10 +133,7 @@ typedef struct _mmc_csd
 	u16 cmdclass;
 	u32 c_size;
 	u32 r2w_factor;
-	u32 max_dtr;
-	u32 erase_size;		/* In sectors */
 	u32 read_blkbits;
-	u32 write_blkbits;
 	u32 capacity;
 	u8  write_protect;
 	u16 busspeed;
@@ -186,6 +187,7 @@ typedef struct _sdmmc_storage_t
 	int is_low_voltage;
 	u32 partition;
 	int initialized;
+	u32 card_power_limit;
 	u8  raw_cid[0x10];
 	u8  raw_csd[0x10];
 	u8  raw_scr[8];
@@ -196,6 +198,14 @@ typedef struct _sdmmc_storage_t
 	sd_scr_t      scr;
 	sd_ssr_t      ssr;
 } sdmmc_storage_t;
+
+typedef struct _sd_func_modes_t
+{
+	u16 access_mode;
+	u16 cmd_system;
+	u16 driver_strength;
+	u16 power_limit;
+} sd_func_modes_t;
 
 int  sdmmc_storage_end(sdmmc_storage_t *storage);
 int  sdmmc_storage_read(sdmmc_storage_t *storage, u32 sector, u32 num_sectors, void *buf);
@@ -209,6 +219,10 @@ int  sdmmc_storage_init_gc(sdmmc_storage_t *storage, sdmmc_t *sdmmc);
 int  sdmmc_storage_execute_vendor_cmd(sdmmc_storage_t *storage, u32 arg);
 int  sdmmc_storage_vendor_sandisk_report(sdmmc_storage_t *storage, void *buf);
 
+int  mmc_storage_get_ext_csd(sdmmc_storage_t *storage, void *buf);
+
+int  sd_storage_get_fmodes(sdmmc_storage_t *storage, u8 *buf, sd_func_modes_t *functions);
+int  sd_storage_get_scr(sdmmc_storage_t *storage, u8 *buf);
 int  sd_storage_get_ssr(sdmmc_storage_t *storage, u8 *buf);
 u32  sd_storage_get_ssr_au(sdmmc_storage_t *storage);
 

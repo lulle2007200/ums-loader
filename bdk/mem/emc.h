@@ -2,7 +2,7 @@
  * arch/arm/mach-tegra/tegra21_emc.h
  *
  * Copyright (c) 2014-2015, NVIDIA CORPORATION.  All rights reserved.
- * Copyright (c) 2019-2020, CTCaer.
+ * Copyright (c) 2019-2024, CTCaer.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -23,6 +23,7 @@
 #ifndef _EMC_H_
 #define _EMC_H_
 
+#define EMC_INTSTATUS                             0x0
 #define EMC_DBG                                   0x8
 #define EMC_CFG                                   0xC
 #define EMC_CONFIG_SAMPLE_DELAY                   0x5f0
@@ -698,6 +699,8 @@
 
 typedef enum _emc_mr_t
 {
+	MR0_FEAT    = 0,
+	MR4_TEMP    = 4,
 	MR5_MAN_ID  = 5,
 	MR6_REV_ID1 = 6,
 	MR7_REV_ID2 = 7,
@@ -710,7 +713,7 @@ enum
 	EMC_CHAN1 = 1
 };
 
-typedef struct _emc_mr_data_t
+typedef struct _emc_mr_chip_data_t
 {
 	// Device 0.
 	u8 rank0_ch0;
@@ -719,6 +722,12 @@ typedef struct _emc_mr_data_t
 	// Device 1.
 	u8 rank1_ch0;
 	u8 rank1_ch1;
+} emc_mr_chip_data_t;
+
+typedef struct _emc_mr_data_t
+{
+	emc_mr_chip_data_t chip0;
+	emc_mr_chip_data_t chip1;
 } emc_mr_data_t;
 
 #endif

@@ -22,6 +22,8 @@
 #include <utils/types.h>
 #include <utils/list.h>
 
+#include <libs/fatfs/ff.h>
+
 #define GPT_FIRST_LBA  1
 #define GPT_NUM_BLOCKS 33
 #define EMMC_BLOCKSIZE SDMMC_DAT_BLOCKSIZE
@@ -54,11 +56,22 @@ typedef struct _emmc_part_t
 
 extern sdmmc_t emmc_sdmmc;
 extern sdmmc_storage_t emmc_storage;
+extern FATFS emmc_fs;
 
+void emmc_error_count_increment(u8 type);
+u16 *emmc_get_error_count();
 u32  emmc_get_mode();
 int  emmc_init_retry(bool power_cycle);
 bool emmc_initialize(bool power_cycle);
 int  emmc_set_partition(u32 partition);
 void emmc_end();
+
+void emmc_gpt_parse(link_t *gpt);
+void emmc_gpt_free(link_t *gpt);
+emmc_part_t *emmc_part_find(link_t *gpt, const char *name);
+int  emmc_part_read(emmc_part_t *part, u32 sector_off, u32 num_sectors, void *buf);
+int  emmc_part_write(emmc_part_t *part, u32 sector_off, u32 num_sectors, void *buf);
+
+void nx_emmc_get_autorcm_masks(u8 *mod0, u8 *mod1);
 
 #endif

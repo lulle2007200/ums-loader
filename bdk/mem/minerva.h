@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019 CTCaer
+ * Copyright (c) 2019-2022 CTCaer
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -38,7 +38,7 @@ typedef struct
 	bool emc_2X_clk_src_is_pllmb;
 	bool fsp_for_src_freq;
 	bool train_ram_patterns;
-	bool init_done;
+	u32  init_done;
 } mtc_config_t;
 
 enum train_mode_t
@@ -53,14 +53,20 @@ enum train_mode_t
 typedef enum
 {
 	FREQ_204  = 204000,
+	FREQ_408  = 408000,
 	FREQ_800  = 800000,
+	FREQ_1333 = 1331200,
 	FREQ_1600 = 1600000
 } minerva_freq_t;
 
 extern void (*minerva_cfg)(mtc_config_t *mtc_cfg, void *);
 u32  minerva_init();
 void minerva_change_freq(minerva_freq_t freq);
+void minerva_sdmmc_la_program(void *table, bool t210b01);
 void minerva_prep_boot_freq();
+void minerva_prep_boot_l4t(u32 oc_freq, u32 opt_custom);
 void minerva_periodic_training();
+emc_table_t *minerva_get_mtc_table();
+int minerva_get_mtc_table_entries();
 
 #endif

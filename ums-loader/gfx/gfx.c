@@ -479,3 +479,69 @@ void gfx_render_bmp_argb(const u32 *buf, u32 size_x, u32 size_y, u32 pos_x, u32 
 			gfx_ctxt.fb[x + y * gfx_ctxt.stride] = buf[(size_y + pos_y - 1 - y ) * size_x + x - pos_x];
 	}
 }
+
+void gfx_fill_checkerboard_p8(const u32 col1, const u32 col2){
+	for(u32 i = 0; i < gfx_ctxt.height; i++){
+		u8 *cur = gfx_ctxt.fb + i * gfx_ctxt.stride;
+		for(u32 j = 0; j < gfx_ctxt.width; j++){
+			u8 col;
+			if((i ^ j) & 8){
+				col = col1;
+			}else{
+				col = col2;
+			}
+			*cur++ = col;
+		}
+	}
+}
+
+void gfx_fill_checkerboard_p4(const u32 col1, const u32 col2){
+	for(u32 i = 0; i < gfx_ctxt.height; i++){
+		u8 *cur_line = gfx_ctxt.fb + i * gfx_ctxt.stride;
+		for(u32 j = 0; j < gfx_ctxt.width; j++){
+			u8 col;
+			if((i ^ j) & 8){
+				col = col1 & 0xf;
+			}else{
+				col = col2 & 0xf;
+			}
+
+			u8 *cur = cur_line + (j / 2);
+			*cur |= col << (1 - (j & 1));
+		}
+	}
+}
+
+void gfx_fill_checkerboard_p2(const u32 col1, const u32 col2){
+	for(u32 i = 0; i < gfx_ctxt.height; i++){
+		u8 *cur_line = gfx_ctxt.fb + i * gfx_ctxt.stride;
+		for(u32 j = 0; j < gfx_ctxt.width; j++){
+			u8 col;
+			if((i ^ j) & 8){
+				col = col1 & 0xf;
+			}else{
+				col = col2 & 0xf;
+			}
+
+			u8 *cur = cur_line + (j / 4);
+			*cur |= col << (3 - (j & 0x3));
+		}
+	}
+}
+
+void gfx_fill_checkerboard_p1(const u32 col1, const u32 col2){
+	for(u32 i = 0; i < gfx_ctxt.height; i++){
+		u8 *cur_line = gfx_ctxt.fb + i * gfx_ctxt.stride;
+		for(u32 j = 0; j < gfx_ctxt.width; j++){
+			u8 col;
+			if((i ^ j) & 8){
+				col = col1 & 0xf;
+			}else{
+				col = col2 & 0xf;
+			}
+
+			u8 *cur = cur_line + (j / 8);
+			*cur |= col << (7 - (j & 0x7));
+		}
+	}
+}

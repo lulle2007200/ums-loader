@@ -1,13 +1,14 @@
 #include <gfx.h>
 #include <mem/mc.h>
 #include <soc/hw_init.h>
-#include <storage/nx_emmc.h>
-#include <storage/nx_sd.h>
+#include <storage/emmc.h>
+#include <storage/sd.h>
 #include <mem/heap.h>
 #include <memory_map.h>
 #include <storage/sdmmc.h>
 #include <storage/mbr_gpt.h>
 #include <string.h>
+#include <soc/timer.h>
 #include <usb/usbd.h>
 #include <utils/btn.h>
 #include <utils/types.h>
@@ -706,13 +707,13 @@ void menu_reboot_rcm_cb(void *data){
 	power_set_state(REBOOT_RCM);
 }
 
-extern void _reset(void);
+extern void excp_reset(void);
 
 void menu_reload_cb(void *data){
-	_reset();
+	excp_reset();
 }
 
-void main(){
+int main(){
 	ums_loader_ums_cfg_t ums_cfg = {0};
 
 	for(u32 i = MEMLOADER_SD; i <= MEMLOADER_EMMC_BOOT1; i++){
@@ -825,23 +826,32 @@ void main(){
 	tui_menu_start(&ums_menu);
 
 	power_set_state(POWER_OFF);
+
+	return 0;
 }
 
+
+void checkerboard_test(){
+	gfx_fill_checkerboard_p8(0, 1);
+	btn_wait();
+	power_set_state(REBOOT_RCM);
+}
 
 void ipl_main(){
 	hw_init();
 	pivot_stack(IPL_STACK_TOP);
-	heap_init(IPL_HEAP_START);
+	heap_init((void*)IPL_HEAP_START);
 
 	mc_enable_ahb_redirect(true);
 
 	display_init();
-	u8 *fb = (u8*)display_init_small_framebuffer_pitch1();
+	u8 *fb = (u8*)display_init_window_a_pitch_small_palette();
 
 	gfx_init_ctxt(fb, 180, 320, 192);
 	gfx_con_init();
 	display_backlight_pwm_init();
 
-	display_backlight_brightness(255, 1000);
+	display_backlight_brightness(128, 1000);
+	// checkerboard_test();
 	main();
 }

@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2018 naehrwert
- * Copyright (c) 2018-2020 CTCaer
+ * Copyright (c) 2018-2022 CTCaer
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -18,7 +18,8 @@
 #include <string.h>
 
 #include <soc/i2c.h>
-#include <utils/util.h>
+#include <soc/t210.h>
+#include <soc/timer.h>
 
 #define I2C_PACKET_PROT_I2C  BIT(4)
 #define I2C_HEADER_CONT_XFER BIT(15)
@@ -81,34 +82,28 @@
 #define  MSTR_CONFIG_LOAD     BIT(0)
 #define  TIMEOUT_CONFIG_LOAD  BIT(2)
 
-static const u32 i2c_addrs[] = {
-	0x7000C000, // I2C_1.
-	0x7000C400, // I2C_2.
-	0x7000C500, // I2C_3.
-	0x7000C700, // I2C_4.
-	0x7000D000, // I2C_5.
-	0x7000D100  // I2C_6.
-};
+/* I2C_1, 2, 3, 4, 5 and 6. */
+static const u16 _i2c_base_offsets[6] = { 0x0, 0x400, 0x500, 0x700, 0x1000, 0x1100 };
 
 static void _i2c_load_cfg_wait(vu32 *base)
 {
 	base[I2C_CONFIG_LOAD] = BIT(5) | TIMEOUT_CONFIG_LOAD | MSTR_CONFIG_LOAD;
 	for (u32 i = 0; i < 20; i++)
 	{
-		usleep(1);
 		if (!(base[I2C_CONFIG_LOAD] & MSTR_CONFIG_LOAD))
 			break;
+		usleep(1);
 	}
 }
 
-static int _i2c_send_single(u32 i2c_idx, u32 dev_addr, u8 *buf, u32 size)
+static int _i2c_send_single(u32 i2c_idx, u32 dev_addr, const u8 *buf, u32 size)
 {
 	if (size > 8)
 		return 0;
 
 	u32 tmp = 0;
 
-	vu32 *base = (vu32 *)i2c_addrs[i2c_idx];
+	vu32 *base = (vu32 *)(I2C_BASE + (u32)_i2c_base_offsets[i2c_idx]);
 
 	// Set device address and send mode.
 	base[I2C_CMD_ADDR0] = dev_addr << 1 | ADDR0_WRITE;
@@ -154,7 +149,7 @@ static int _i2c_recv_single(u32 i2c_idx, u8 *buf, u32 size, u32 dev_addr)
 	if (size > 8)
 		return 0;
 
-	vu32 *base = (vu32 *)i2c_addrs[i2c_idx];
+	vu32 *base = (vu32 *)(I2C_BASE + (u32)_i2c_base_offsets[i2c_idx]);
 
 	// Set device address and recv mode.
 	base[I2C_CMD_ADDR0] = (dev_addr << 1) | ADDR0_READ;
@@ -198,15 +193,15 @@ static int _i2c_send_pkt(u32 i2c_idx, u8 *buf, u32 size, u32 dev_addr)
 
 	int res = 0;
 
-	vu32 *base = (vu32 *)i2c_addrs[i2c_idx];
+	vu32 *base = (vu32 *)(I2C_BASE + (u32)_i2c_base_offsets[i2c_idx]);
 
 	// Enable interrupts.
 	base[I2C_INT_EN] = ALL_PACKETS_COMPLETE | PACKET_COMPLETE | NO_ACK |
 		ARB_LOST | TX_FIFO_OVER | RX_FIFO_UNDER | TX_FIFO_DATA_REQ;
 	base[I2C_INT_STATUS] = base[I2C_INT_STATUS];
 
-	// Set device address and recv mode.
-	base[I2C_CMD_ADDR0] = (dev_addr << 1) | ADDR0_READ;
+	// Set device address and send mode.
+	base[I2C_CMD_ADDR0] = (dev_addr << 1) | ADDR0_WRITE;
 
 	// Set recv mode.
 	base[I2C_CNFG] = DEBOUNCE_CNT_4T | NEW_MASTER_FSM | CMD1_WRITE;
@@ -270,7 +265,7 @@ static int _i2c_recv_pkt(u32 i2c_idx, u8 *buf, u32 size, u32 dev_addr, u32 reg)
 
 	int res = 0;
 
-	vu32 *base = (vu32 *)i2c_addrs[i2c_idx];
+	vu32 *base = (vu32 *)(I2C_BASE + (u32)_i2c_base_offsets[i2c_idx]);
 
 	// Enable interrupts.
 	base[I2C_INT_EN] = ALL_PACKETS_COMPLETE | PACKET_COMPLETE | NO_ACK |
@@ -352,7 +347,7 @@ static int _i2c_recv_pkt(u32 i2c_idx, u8 *buf, u32 size, u32 dev_addr, u32 reg)
 
 void i2c_init(u32 i2c_idx)
 {
-	vu32 *base = (vu32 *)i2c_addrs[i2c_idx];
+	vu32 *base = (vu32 *)(I2C_BASE + (u32)_i2c_base_offsets[i2c_idx]);
 
 	base[I2C_CLK_DIVISOR] = (5 << 16) | 1; // SF mode Div: 6, HS mode div: 2.
 	base[I2C_BUS_CLEAR_CONFIG] = (9 << 16) | BC_TERMINATE | BC_ENABLE;
@@ -362,9 +357,9 @@ void i2c_init(u32 i2c_idx)
 
 	for (u32 i = 0; i < 10; i++)
 	{
-		usleep(20000);
 		if (base[I2C_INT_STATUS] & BUS_CLEAR_DONE)
 			break;
+		usleep(25);
 	}
 
 	(vu32)base[I2C_BUS_CLEAR_STATUS];
@@ -389,9 +384,9 @@ int i2c_recv_buf_big(u8 *buf, u32 size, u32 i2c_idx, u32 dev_addr, u32 reg)
 	return _i2c_recv_pkt(i2c_idx, buf, size, dev_addr, reg);
 }
 
-int i2c_send_buf_small(u32 i2c_idx, u32 dev_addr, u32 reg, u8 *buf, u32 size)
+int i2c_send_buf_small(u32 i2c_idx, u32 dev_addr, u32 reg, const u8 *buf, u32 size)
 {
-	u8 tmp[4];
+	u8 tmp[8];
 
 	if (size > 7)
 		return 0;

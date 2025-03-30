@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2018 naehrwert
- * Copyright (c) 2018-2021 CTCaer
+ * Copyright (c) 2018-2024 CTCaer
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -51,11 +51,11 @@ typedef enum
 	ERR_EXCEPTION  = BIT(31),
 } hekate_errors_t;
 
-typedef struct _cfg_op_t
+typedef struct _reg_cfg_t
 {
-	u32 off;
+	u32 idx;
 	u32 val;
-} cfg_op_t;
+} reg_cfg_t;
 
 typedef struct _nyx_info_t
 {
@@ -76,20 +76,18 @@ typedef struct _nyx_storage_t
 	u8  rsvd[SZ_8M - sizeof(nyx_info_t)];
 	nyx_info_t info;
 	mtc_config_t mtc_cfg;
-	emc_table_t mtc_table[10];
+	emc_table_t mtc_table[11]; // 10 + 1.
 } nyx_storage_t;
 
 u8   bit_count(u32 val);
 u32  bit_count_mask(u8 bits);
+char *strcpy_ns(char *dst, char *src);
+u64  sqrt64(u64 num);
+long strtol(const char *nptr, char **endptr, register int base);
+int  atoi(const char *nptr);
 
-void exec_cfg(u32 *base, const cfg_op_t *ops, u32 num_ops);
+void reg_write_array(u32 *base, const reg_cfg_t *cfg, u32 num_cfg);
 u32  crc32_calc(u32 crc, const u8 *buf, u32 len);
-
-u32  get_tmr_us();
-u32  get_tmr_ms();
-u32  get_tmr_s();
-void usleep(u32 us);
-void msleep(u32 ms);
 
 void panic(u32 val);
 void power_set_state(power_state_t state);

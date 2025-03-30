@@ -73,5 +73,9 @@ void gfx_set_rect_grey(const u8 *buf, u32 size_x, u32 size_y, u32 pos_x, u32 pos
 void gfx_set_rect_rgb(const u8 *buf, u32 size_x, u32 size_y, u32 pos_x, u32 pos_y);
 void gfx_set_rect_argb(const u32 *buf, u32 size_x, u32 size_y, u32 pos_x, u32 pos_y);
 void gfx_render_bmp_argb(const u32 *buf, u32 size_x, u32 size_y, u32 pos_x, u32 pos_y);
+void gfx_fill_checkerboard_p4(const u32 col1, const u32 col2);
+void gfx_fill_checkerboard_p2(const u32 col1, const u32 col2);
+void gfx_fill_checkerboard_p1(const u32 col1, const u32 col2);
+void gfx_fill_checkerboard_p8(const u32 col1, const u32 col2);
 
 #endif

@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2018 naehrwert
- * Copyright (c) 2018-2021 CTCaer
+ * Copyright (c) 2018-2022 CTCaer
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -5879,7 +5879,7 @@ FRESULT f_mkfs (
 	stat = disk_initialize(pdrv);
 	if (stat & STA_NOINIT) return FR_NOT_READY;
 	if (stat & STA_PROTECT) return FR_WRITE_PROTECTED;
-	if (disk_ioctl(pdrv, GET_BLOCK_SIZE, &sz_blk) != RES_OK || !sz_blk || sz_blk > 32768 || (sz_blk & (sz_blk - 1))) sz_blk = 1;	/* Erase block to align data area */
+	if (disk_ioctl(pdrv, GET_BLOCK_SIZE, &sz_blk) != RES_OK || !sz_blk || sz_blk > 131072 || (sz_blk & (sz_blk - 1))) sz_blk = 2048;	/* Erase block to align data area. 1MB minimum */
 #if FF_MAX_SS != FF_MIN_SS		/* Get sector size of the medium if variable sector size cfg. */
 	if (disk_ioctl(pdrv, GET_SECTOR_SIZE, &ss) != RES_OK) return FR_DISK_ERR;
 	if (ss > FF_MAX_SS || ss < FF_MIN_SS || (ss & (ss - 1))) return FR_DISK_ERR;
@@ -5915,7 +5915,7 @@ FRESULT f_mkfs (
 	} else {
 		/* Create a single-partition in this function */
 		if (disk_ioctl(pdrv, GET_SECTOR_COUNT, &sz_vol) != RES_OK) LEAVE_MKFS(FR_DISK_ERR);
-		b_vol = (opt & FM_SFD) ? 0 : 32768;		/* Volume start sector. Align to 16MB */
+		b_vol = (opt & FM_SFD) ? 0 : sz_blk;		/* Volume start sector */
 		if (sz_vol < b_vol) LEAVE_MKFS(FR_MKFS_ABORTED);
 		sz_vol -= b_vol;						/* Volume size */
 	}
@@ -6228,8 +6228,13 @@ FRESULT f_mkfs (
 			mem_set(buf, 0, ss);
 			st_dword(buf + FSI_LeadSig, 0x41615252);
 			st_dword(buf + FSI_StrucSig, 0x61417272);
-			st_dword(buf + FSI_Free_Count, n_clst - 1);	/* Number of free clusters */
-			st_dword(buf + FSI_Nxt_Free, 2);			/* Last allocated cluster# */
+			if (opt & FM_PRF2) {
+				st_dword(buf + FSI_Free_Count, 0xFFFFFFFF);	/* Invalidate free count */
+				st_dword(buf + FSI_Nxt_Free, 0xFFFFFFFF);	/* Invalidate last allocated cluster */
+			} else {
+				st_dword(buf + FSI_Free_Count, n_clst - 1);	/* Number of free clusters */
+				st_dword(buf + FSI_Nxt_Free, 2);			/* Last allocated cluster# */
+			}
 			st_word(buf + BS_55AA, 0xAA55);
 			disk_write(pdrv, buf, b_vol + 7, 1);		/* Write backup FSINFO (VBR + 7) */
 			disk_write(pdrv, buf, b_vol + 1, 1);		/* Write original FSINFO (VBR + 1) */
@@ -6238,11 +6243,18 @@ FRESULT f_mkfs (
 		/* Create PRF2SAFE info */
 		if (fmt == FS_FAT32 && opt & FM_PRF2) {
 			mem_set(buf, 0, ss);
-			buf[16] = 0x64;							/* Record type */
-			st_dword(buf + 32, 0x03);				/* Unknown. SYSTEM: 0x3F00. USER: 0x03. Volatile. */
-			st_dword(buf + 36, 25);					/* Entries. SYSTEM: 22. USER: 25.Static? */
-			st_dword(buf + 508, 0x517BBFE0);		/* Custom CRC32. SYSTEM: 0x6B673904. USER: 0x517BBFE0. */
-			disk_write(pdrv, buf, b_vol + 3, 1);	/* Write PRF2SAFE info (VBR + 3) */
+			st_dword(buf + 0, 0x32465250);				/* Magic PRF2 */
+			st_dword(buf + 4, 0x45464153);				/* Magic SAFE */
+			buf[16] = 0x64;									/* Record type */
+			st_dword(buf + 32, 0x03);						/* Unknown. SYSTEM: 0x3F00. USER: 0x03. Volatile. */
+			if (sz_vol < 0x1000000) {
+				st_dword(buf + 36, 21 + 1);				/* 22 Entries. */
+				st_dword(buf + 508, 0x90BB2F39);			/* Sector CRC32 */
+			} else {
+				st_dword(buf + 36, 21 + 2);				/* 23 Entries. */
+				st_dword(buf + 508, 0x5EA8AFC8);			/* Sector CRC32 */
+			}
+			disk_write(pdrv, buf, b_vol + 3, 1);		/* Write PRF2SAFE info (VBR + 3) */
 		}
 
 		/* Initialize FAT area */

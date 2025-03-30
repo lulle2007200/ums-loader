@@ -1,7 +1,7 @@
 /*
  * Enhanced USB Device (EDCI) driver for Tegra X1
  *
- * Copyright (c) 2019-2021 CTCaer
+ * Copyright (c) 2019-2024 CTCaer
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -30,16 +30,16 @@
 #include <soc/gpio.h>
 #include <soc/pinmux.h>
 #include <soc/pmc.h>
+#include <soc/timer.h>
 #include <soc/t210.h>
 #include <utils/btn.h>
-#include <utils/util.h>
 
 #include <memory_map.h>
 
 typedef enum
 {
-    USB_HW_EP0 = 0,
-    USB_HW_EP1 = 1
+	USB_HW_EP0 = 0,
+	USB_HW_EP1 = 1
 } usb_hw_ep_t;
 
 typedef enum
@@ -143,11 +143,11 @@ static int _usbd_reset_usb_otg_phy_device_mode()
 
 	// Clear all device addresses, enabled setup requests and transmit events.
 	usbd_otg->regs->periodiclistbase = 0;
-	usbd_otg->regs->endptsetupstat = usbd_otg->regs->endptsetupstat;
-	usbd_otg->regs->endptcomplete = usbd_otg->regs->endptcomplete;
+	usbd_otg->regs->endptsetupstat   = usbd_otg->regs->endptsetupstat;
+	usbd_otg->regs->endptcomplete    = usbd_otg->regs->endptcomplete;
 
 	// Stop device controller.
-	usbd_otg->regs->usbcmd &= ~USB2D_USBCMD_RUN;
+	usbd_otg->regs->usbcmd  &= ~USB2D_USBCMD_RUN;
 
 	// Set controller mode to idle.
 	usbd_otg->regs->usbmode &= ~USB2D_USBMODE_CM_MASK;
@@ -192,16 +192,15 @@ static int _usbd_reset_usb_otg_phy_device_mode()
 	usbd_otg->regs->usbintr = 0;
 
 	// Set the ID pullup and disable all OTGSC interrupts.
-	usbd_otg->regs->otgsc = USB2D_OTGSC_USB_ID_PULLUP;
+	usbd_otg->regs->otgsc  = USB2D_OTGSC_USB_ID_PULLUP;
 
 	// Clear all relevant interrupt statuses.
-	usbd_otg->regs->usbsts =
-		USB2D_USBSTS_UI | USB2D_USBSTS_UEI | USB2D_USBSTS_PCI |
-		USB2D_USBSTS_FRI | USB2D_USBSTS_SEI | USB2D_USBSTS_AAI |
-		USB2D_USBSTS_URI | USB2D_USBSTS_SRI | USB2D_USBSTS_SLI;
+	usbd_otg->regs->usbsts = USB2D_USBSTS_UI  | USB2D_USBSTS_UEI | USB2D_USBSTS_PCI |
+							 USB2D_USBSTS_FRI | USB2D_USBSTS_SEI | USB2D_USBSTS_AAI |
+							 USB2D_USBSTS_URI | USB2D_USBSTS_SRI | USB2D_USBSTS_SLI;
 
 	// Disable and clear all OTGSC interrupts.
-	usbd_otg->regs->otgsc = USB2D_OTGSC_USB_IRQ_STS_MASK;
+	usbd_otg->regs->otgsc  = USB2D_OTGSC_USB_IRQ_STS_MASK;
 
 	// Clear EP0, EP1, EP2 setup requests.
 	usbd_otg->regs->endptsetupstat = 7; //TODO: Shouldn't this be endptsetupstat = endptsetupstat?
@@ -222,11 +221,10 @@ static void _usb_charger_detect()
 		usbd_otg->charger_detect |= 1;
 		// Configure detect pin.
 		PINMUX_AUX(PINMUX_AUX_LCD_GPIO1) &= ~(PINMUX_PARKED | PINMUX_TRISTATE | PINMUX_PULL_MASK);
-		gpio_config(GPIO_PORT_V, GPIO_PIN_3, GPIO_MODE_GPIO);
+		gpio_direction_input(GPIO_PORT_V, GPIO_PIN_3);
 
 		// Configure charger pin.
-		PINMUX_AUX(PINMUX_AUX_USB_VBUS_EN1) &=
-			~(PINMUX_INPUT_ENABLE | PINMUX_PARKED | PINMUX_TRISTATE | PINMUX_PULL_MASK);
+		PINMUX_AUX(PINMUX_AUX_USB_VBUS_EN1) &= ~(PINMUX_INPUT_ENABLE | PINMUX_PARKED | PINMUX_TRISTATE | PINMUX_PULL_MASK);
 		gpio_config(GPIO_PORT_CC, GPIO_PIN_5, GPIO_MODE_GPIO);
 		gpio_output_enable(GPIO_PORT_CC, GPIO_PIN_5, GPIO_OUTPUT_ENABLE);
 
@@ -289,12 +287,12 @@ static void _usb_init_phy()
 
 	// Configure misc UTMIP.
 	USB(USB1_UTMIP_DEBOUNCE_CFG0) = (USB(USB1_UTMIP_DEBOUNCE_CFG0) & 0xFFFF0000) | 0xBB80;
-	USB(USB1_UTMIP_BIAS_CFG1) = (USB(USB1_UTMIP_BIAS_CFG1) & 0xFFFFC0FF) | 0x100; // when osc is 38.4KHz
+	USB(USB1_UTMIP_BIAS_CFG1)     = (USB(USB1_UTMIP_BIAS_CFG1) & 0xFFFFC0FF)     | 0x100; // when osc is 38.4KHz
 
 	//USB(USB1_UTMIP_SPARE_CFG0) &= 0xFFFFFEE7; unpatched0
-	USB(USB1_UTMIP_BIAS_CFG2) |= 2; //patched0 - UTMIP_HSSQUELCH_LEVEL_NEW: 2.
+	USB(USB1_UTMIP_BIAS_CFG2)  |= 2;          //patched0 - UTMIP_HSSQUELCH_LEVEL_NEW: 2.
 	USB(USB1_UTMIP_SPARE_CFG0) &= 0xFFFFFE67; //patched0 - FUSE_HS_IREF_CAP_CFG
-	USB(USB1_UTMIP_TX_CFG0) |= 0x80000;
+	USB(USB1_UTMIP_TX_CFG0)    |= 0x80000;
 
 	//USB(USB1_UTMIP_HSRX_CFG0) = (USB(USB1_UTMIP_HSRX_CFG0) & 0xFFF003FF) | 0x88000 | 0x4000; unpatched1
 	USB(USB1_UTMIP_HSRX_CFG0) = (USB(USB1_UTMIP_HSRX_CFG0) & 0xF0F003FF) | 0x88000 | 0x4000; //patched1 - reset UTMIP_PCOUNT_UPDN_DIV: From 1 to 0.
@@ -307,7 +305,7 @@ static void _usb_init_phy()
 	CLOCK(CLK_RST_CONTROLLER_UTMIP_PLL_CFG2) |= 0x40000000;
 
 	// Enable USB2 tracking clock.
-	CLOCK(CLK_RST_CONTROLLER_CLK_ENB_Y_SET) = BIT(CLK_Y_USB2_TRK);
+	CLOCK(CLK_RST_CONTROLLER_CLK_ENB_Y_SET)            = BIT(CLK_Y_USB2_TRK);
 	CLOCK(CLK_RST_CONTROLLER_CLK_SOURCE_USB2_HSIC_TRK) = (CLOCK(CLK_RST_CONTROLLER_CLK_SOURCE_USB2_HSIC_TRK) & 0xFFFFFF00) | 6; // Set trank divisor to 4.
 
 	USB(USB1_UTMIP_BIAS_CFG1) = (USB(USB1_UTMIP_BIAS_CFG1) & 0xFFC03F07) | 0x78000 | 0x50; // Set delays.
@@ -338,7 +336,7 @@ static void _usb_init_phy()
 	usleep(1);
 
 	// Clear power downs on UTMIP ID and VBUS wake up, PD, PD2, PDZI, PDCHRP, PDDR.
-	PMC(APBDEV_PMC_USB_AO) &= 0xFFFFFFF3;    // UTMIP ID and VBUS wake up.
+	PMC(APBDEV_PMC_USB_AO)    &= 0xFFFFFFF3; // UTMIP ID and VBUS wake up.
 	usleep(1);
 	USB(USB1_UTMIP_XCVR_CFG0) &= 0xFFFFBFFF; // UTMIP_FORCE_PD_POWERDOWN.
 	usleep(1);
@@ -357,19 +355,25 @@ int usb_device_init()
 	if (usb_init_done)
 		return USB_RES_OK;
 
+	// Ease the stress to APB.
+	bpmp_clk_rate_relaxed(true);
+
 	// Initialize USB2 controller PHY.
 	_usb_init_phy();
 
+	// Restore OC.
+	bpmp_clk_rate_relaxed(false);
+
 	// AHB USB performance cfg.
 	AHB_GIZMO(AHB_GIZMO_AHB_MEM) |= AHB_MEM_DONT_SPLIT_AHB_WR | AHB_MEM_ENB_FAST_REARBITRATE;
-	AHB_GIZMO(AHB_GIZMO_USB) |= AHB_GIZMO_IMMEDIATE;
+	AHB_GIZMO(AHB_GIZMO_USB)     |= AHB_GIZMO_IMMEDIATE;
 	AHB_GIZMO(AHB_ARBITRATION_PRIORITY_CTRL) = PRIORITY_CTRL_WEIGHT(7) | PRIORITY_SELECT_USB;
-	AHB_GIZMO(AHB_AHB_MEM_PREFETCH_CFG1) =
-		MEM_PREFETCH_ENABLE | MEM_PREFETCH_USB_MST_ID | MEM_PREFETCH_ADDR_BNDRY(12) | 0x1000; // Addr boundary 64KB, Inactivity 4096 cycles.
+	AHB_GIZMO(AHB_AHB_MEM_PREFETCH_CFG1)     = MEM_PREFETCH_ENABLE     | MEM_PREFETCH_USB_MST_ID |
+											   MEM_PREFETCH_ADDR_BNDRY(12) | 0x1000; // Addr boundary 64KB, Inactivity 4096 cycles.
 
 	// Set software and hardware context storage and clear it.
 	usbdaemon = (usbd_t *)USBD_ADDR; // Depends on USB_TD_BUFFER_PAGE_SIZE aligned address.
-	usbd_otg = &usbd_usb_otg_controller_ctxt;
+	usbd_otg  = &usbd_usb_otg_controller_ctxt;
 	memset(usbd_otg,  0, sizeof(usbd_controller_t));
 	memset(usbdaemon, 0, sizeof(usbd_t));
 
@@ -441,6 +445,11 @@ static void _usb_device_power_down()
 	clock_disable_pllu();
 
 	usb_init_done = false;
+}
+
+static void _usbd_disable_ep1()
+{
+	usbd_otg->regs->endptctrl[1] = 0;
 }
 
 static void _usbd_stall_reset_ep1(usb_dir_t direction, usb_ep_cfg_t stall)
@@ -524,13 +533,11 @@ static void _usbd_initialize_ep_ctrl(u32 endpoint)
 	{
 		u32 endpoint_type = usbd_otg->regs->endptctrl[actual_ep] & ~USB2D_ENDPTCTRL_RX_EP_TYPE_MASK;
 		if (actual_ep)
-		{
 			endpoint_type |= usbd_otg->gadget ? USB2D_ENDPTCTRL_RX_EP_TYPE_INTR : USB2D_ENDPTCTRL_RX_EP_TYPE_BULK;
-		}
 		else
 			endpoint_type |= USB2D_ENDPTCTRL_RX_EP_TYPE_CTRL;
 
-		usbd_otg->regs->endptctrl[actual_ep] = endpoint_type;
+		usbd_otg->regs->endptctrl[actual_ep]  = endpoint_type;
 		usbd_otg->regs->endptctrl[actual_ep] &= ~USB2D_ENDPTCTRL_RX_EP_STALL;
 
 		if (actual_ep == USB_HW_EP1)
@@ -542,7 +549,7 @@ static void _usbd_initialize_ep_ctrl(u32 endpoint)
 
 static int _usbd_initialize_ep0()
 {
-	memset((void *)usbdaemon->qhs, 0, sizeof(dQH_t) * 4);  // Clear all used EP queue heads.
+	memset((void *)usbdaemon->qhs,  0, sizeof(dQH_t) * 4); // Clear all used EP queue heads.
 	memset((void *)usbdaemon->dtds, 0, sizeof(dTD_t) * 4); // Clear all used EP0 token heads.
 
 	usbd_otg->regs->asynclistaddr = (u32)usbdaemon->qhs;
@@ -583,8 +590,8 @@ int usbd_flush_endpoint(u32 endpoint)
 {
 
 	usb_hw_ep_t actual_ep = (endpoint & 2) >> 1;
-	usb_dir_t direction = endpoint & 1;
-	u32 reg_mask = endpoint;
+	usb_dir_t direction   = endpoint & 1;
+	u32 reg_mask          = endpoint;
 
 	// Flash all endpoints or 1.
 	if (endpoint != USB_EP_ALL)
@@ -628,19 +635,23 @@ int usbd_flush_endpoint(u32 endpoint)
 	return USB_RES_OK;
 }
 
+static void _usb_reset_disable_ep1()
+{
+	usbd_flush_endpoint(USB_EP_ALL);
+	_usbd_stall_reset_ep1(USB_DIR_OUT, USB_EP_CFG_RESET); // EP1 Bulk OUT.
+	_usbd_stall_reset_ep1(USB_DIR_IN, USB_EP_CFG_RESET);  // EP1 Bulk IN.
+	_usbd_disable_ep1();
+
+	usbd_otg->config_num        = 0;
+	usbd_otg->interface_num     = 0;
+	usbd_otg->configuration_set = false;
+	usbd_otg->max_lun_set       = false;
+}
+
 void usbd_end(bool reset_ep, bool only_controller)
 {
 	if (reset_ep)
-	{
-		usbd_flush_endpoint(USB_EP_ALL);
-		_usbd_stall_reset_ep1(USB_DIR_OUT, USB_EP_CFG_RESET); // EP1 Bulk OUT.
-		_usbd_stall_reset_ep1(USB_DIR_IN, USB_EP_CFG_RESET);  // EP1 Bulk IN.
-
-		usbd_otg->config_num = 0;
-		usbd_otg->interface_num = 0;
-		usbd_otg->configuration_set = false;
-		usbd_otg->max_lun_set = false;
-	}
+		_usb_reset_disable_ep1();
 
 	// Stop device controller.
 	usbd_otg->regs->usbcmd &= ~USB2D_USBCMD_RUN;
@@ -659,9 +670,11 @@ static void _usbd_mark_ep_complete(u32 endpoint)
 	usb_dir_t direction = endpoint & 1;
 
 	usbd_flush_endpoint(endpoint);
+
 	memset((void *)&usbdaemon->dtds[endpoint * 4], 0, sizeof(dTD_t) * 4);
-	memset((void *)&usbdaemon->qhs[endpoint], 0, sizeof(dQH_t));
-	usbdaemon->ep_configured[endpoint] = 0;
+	memset((void *)&usbdaemon->qhs[endpoint],      0, sizeof(dQH_t));
+
+	usbdaemon->ep_configured[endpoint]      = 0;
 	usbdaemon->ep_bytes_requested[endpoint] = 0;
 
 	if (direction == USB_DIR_IN)
@@ -762,7 +775,7 @@ static int _usbd_ep_operation(usb_ep_t endpoint, u8 *buf, u32 len, u32 sync_time
 		// Set buffers addresses to all page pointers.
 		u32 dt_buffer_offset = dtd_idx * USB_TD_BUFFER_MAX_SIZE;
 		for (u32 i = 0; i < 4; i++)
-			usbdaemon->dtds[dtd_ep_idx + dtd_idx].pages[i] =
+			usbdaemon->dtds[dtd_ep_idx + dtd_idx].pages[i] = !buf ? 0 :
 				(u32)&buf[dt_buffer_offset + (USB_TD_BUFFER_PAGE_SIZE * i)];
 
 		//usbdaemon->dtds[dtd_ep_idx + dtd_idx].pages[5] =
@@ -785,12 +798,12 @@ static int _usbd_ep_operation(usb_ep_t endpoint, u8 *buf, u32 len, u32 sync_time
 	AHB_GIZMO(AHB_AHB_MEM_PREFETCH_CFG1) |=  MEM_PREFETCH_ENABLE;
 
 	if (direction == USB_DIR_IN)
-	{
 		prime_bit = USB2D_ENDPT_STATUS_TX_OFFSET << actual_ep;
-		bpmp_mmu_maintenance(BPMP_MMU_MAINT_CLN_INV_WAY, false);
-	}
 	else
 		prime_bit = USB2D_ENDPT_STATUS_RX_OFFSET << actual_ep;
+
+	// Flush data before priming EP.
+	bpmp_mmu_maintenance(BPMP_MMU_MAINT_CLEAN_WAY, false);
 
 	// Prime endpoint.
 	usbd_otg->regs->endptprime |= prime_bit; // USB2_CONTROLLER_USB2D_ENDPTPRIME.
@@ -825,8 +838,9 @@ out:
 		else if (_usbd_get_ep_status(endpoint) != USB_EP_STATUS_IDLE)
 			res = USB_ERROR_XFER_ERROR;
 
+		// Invalidate data after OP is done.
 		if (direction == USB_DIR_OUT)
-			bpmp_mmu_maintenance(BPMP_MMU_MAINT_CLN_INV_WAY, false);
+			bpmp_mmu_maintenance(BPMP_MMU_MAINT_INVALID_WAY, false);
 	}
 
 	return res;
@@ -840,9 +854,8 @@ static int _usbd_ep_ack(usb_ep_t ep)
 static void _usbd_set_ep0_stall()
 {
 	// EP Control endpoints must be always stalled together.
-	usbd_otg->regs->endptctrl[0] =
-			USB2D_ENDPTCTRL_TX_EP_ENABLE | USB2D_ENDPTCTRL_TX_EP_STALL |
-			USB2D_ENDPTCTRL_RX_EP_ENABLE | USB2D_ENDPTCTRL_RX_EP_STALL;
+	usbd_otg->regs->endptctrl[0] = USB2D_ENDPTCTRL_TX_EP_ENABLE | USB2D_ENDPTCTRL_TX_EP_STALL |
+								   USB2D_ENDPTCTRL_RX_EP_ENABLE | USB2D_ENDPTCTRL_RX_EP_STALL;
 }
 
 int usbd_set_ep_stall(u32 endpoint, int ep_stall)
@@ -1046,6 +1059,16 @@ static int _usbd_handle_set_request(bool *ep_stall)
 		if (!res)
 		{
 			usbd_otg->config_num = usbd_otg->control_setup.wValue;
+
+			// Remove configuration.
+			if (!usbd_otg->config_num)
+			{
+				//! TODO: Signal that to userspace.
+				_usb_reset_disable_ep1();
+				return res;
+			}
+
+			// Initialize configuration.
 			_usbd_initialize_ep_ctrl(USB_EP_BULK_OUT);
 			_usbd_initialize_ep_ctrl(USB_EP_BULK_IN);
 			usbd_otg->configuration_set = true;
@@ -1321,8 +1344,8 @@ static int _usbd_ep0_initialize()
 
 				// Clear all device addresses, enabled setup requests, transmit events and flush all endpoints.
 				usbd_otg->regs->periodiclistbase = 0;
-				usbd_otg->regs->endptsetupstat = usbd_otg->regs->endptsetupstat;
-				usbd_otg->regs->endptcomplete = usbd_otg->regs->endptcomplete;
+				usbd_otg->regs->endptsetupstat   = usbd_otg->regs->endptsetupstat;
+				usbd_otg->regs->endptcomplete    = usbd_otg->regs->endptcomplete;
 				usbd_flush_endpoint(USB_EP_ALL);
 			}
 
@@ -1470,7 +1493,7 @@ int usb_device_ep1_out_reading_finish(u32 *pending_bytes, u32 sync_timeout)
 
 	*pending_bytes = _usbd_get_ep1_out_bytes_read();
 
-	bpmp_mmu_maintenance(BPMP_MMU_MAINT_CLN_INV_WAY, false);
+	bpmp_mmu_maintenance(BPMP_MMU_MAINT_INVALID_WAY, false);
 
 	if (ep_status == USB_EP_STATUS_IDLE)
 		return USB_RES_OK;

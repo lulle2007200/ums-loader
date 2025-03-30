@@ -21,7 +21,6 @@
 
 #include <utils/types.h>
 
-
 #define USB_TD_BUFFER_PAGE_SIZE 0x1000
 #define USB_TD_BUFFER_MAX_SIZE  (USB_TD_BUFFER_PAGE_SIZE * 4)
 //#define USB_HW_BUFFER_5_PAGES 0x5000

@@ -26,15 +26,16 @@
 #define USB_EP_BULK_OUT_BUF_ADDR  (USB_EP_BULK_IN_BUF_ADDR + SZ_64K) //64K
 #define USB_EP_BULK_OUT_MAX_XFER  SZ_64K
 
+#define IPL_SMALL_FB_SZ           (SZ_32K + SZ_16K + SZ_8K + SZ_4K)
 #define IPL_SMALL_FB_ADDR         (USB_EP_BULK_OUT_BUF_ADDR + SZ_64K) //60K
 
-#define XUSB_RING_ADDR            (IPL_SMALL_FB_ADDR + SZ_32K + SZ_16K + SZ_8K + SZ_4K) //1.5K
+#define XUSB_RING_ADDR            (IPL_SMALL_FB_ADDR + IPL_SMALL_FB_SZ) //1.5K
 
 #define USB_EP_CONTROL_BUF_ADDR   (XUSB_RING_ADDR + SZ_1K + (SZ_1K / 2)) //1K
 
 #define IPL_HEAP_START            (USB_EP_CONTROL_BUF_ADDR + SZ_1K)
 
-#define IPL_STACK_TOP             0x4003ff00
+#define IPL_STACK_TOP             0x40040000
 
 #define DRAM_START                0x80000000
 
