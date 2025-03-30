@@ -14,6 +14,7 @@
 #include <utils/types.h>
 #include <utils/util.h>
 #include <utils/sprintf.h>
+#include <soc/t210.h>
 
 #include <display/di.h>
 #include <gfx_utils.h>
@@ -116,9 +117,16 @@ static const char *toggle_menu_strings[][3] = {
 	
 extern void pivot_stack(u32 stack_top);
 
-void system_maintenance(bool refresh){
-
+void reboot_rcm(){
+	bool is_t210 = hw_get_chip_id() == GP_HIDREV_MAJOR_T210;
+	if(is_t210){
+		power_set_state(REBOOT_RCM);
+	}else{
+		power_set_state(POWER_OFF);
+	}
 }
+
+void system_maintenance(bool refresh){}
 
 void set_text(void *label, const char *text){
 	u32 pos_x;
@@ -237,7 +245,7 @@ void ums_start(ums_loader_ums_cfg_t *config){
 			power_set_state(POWER_OFF);
 			break;
 		case MEMLOADER_STOP_ACTION_RCM:
-			power_set_state(REBOOT_RCM);
+			reboot_rcm();
 			break;
 		case MEMLOADER_STOP_ACTION_MENU:
 		default:
@@ -704,7 +712,7 @@ void menu_power_off_cb(void *data){
 }
 
 void menu_reboot_rcm_cb(void *data){
-	power_set_state(REBOOT_RCM);
+	reboot_rcm();
 }
 
 extern void excp_reset(void);
@@ -796,6 +804,7 @@ int main(){
 		},
 	};
 
+	bool is_t210 = hw_get_chip_id() == GP_HIDREV_MAJOR_T210;
 
 	tui_entry_t ums_menu_entries[] = {
 		[0] = TUI_ENTRY_TEXT("Volume Mount", &ums_menu_entries[1]),
@@ -809,7 +818,7 @@ int main(){
 		[8] = TUI_ENTRY_ACTION("Mount Substorage", ums_sub_storage_cb, &ums_cfg, ums_cfg.storage_state & MEMLOADER_ERROR_EMMC && ums_cfg.storage_state & MEMLOADER_ERROR_SD, &ums_menu_entries[9]),
 		[9] = TUI_ENTRY_TEXT("\n", &ums_menu_entries[10]),
  		[10] = TUI_ENTRY_ACTION("Reload", menu_reload_cb, NULL, false, &ums_menu_entries[11]),
-		[11] = TUI_ENTRY_ACTION("Reboot RCM", menu_reboot_rcm_cb, NULL, false, &ums_menu_entries[12]),
+		[11] = TUI_ENTRY_ACTION("Reboot RCM", menu_reboot_rcm_cb, NULL, !is_t210, &ums_menu_entries[12]),
 		[12] = TUI_ENTRY_ACTION("Power Off", menu_power_off_cb, NULL, false, NULL),
 	};
 
@@ -834,7 +843,7 @@ int main(){
 void checkerboard_test(){
 	gfx_fill_checkerboard_p8(0, 1);
 	btn_wait();
-	power_set_state(REBOOT_RCM);
+	reboot_rcm();
 }
 
 void ipl_main(){
